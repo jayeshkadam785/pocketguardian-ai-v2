@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketGuardian AI</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#c0154a">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0f;
+    color: #f1f1f1;
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 {
+    color: #ff3b5c;
+    margin: 20px 0 5px;
+    font-size: 28px;
+  }
+  .subtitle {
+    color: #999;
+    font-size: 13px;
+    margin-bottom: 25px;
+  }
+  .sos-btn {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ff3b5c, #b8002e);
+    border: none;
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    box-shadow: 0 0 30px rgba(255,59,92,0.6);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .sos-btn:active { transform: scale(0.95); }
+  .status {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #4ade80;
+    min-height: 20px;
+    text-align: center;
+  }
+  .section {
+    width: 100%;
+    max-width: 420px;
+    background: #16161f;
+    border-radius: 14px;
+    padding: 18px;
+    margin-top: 25px;
+  }
+  .section h3 {
+    font-size: 15px;
+    color: #ff3b5c;
+    margin-bottom: 12px;
+  }
+  input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #0a0a0f;
+    color: white;
+    font-size: 14px;
+  }
+  .add-btn {
+    width: 100%;
+    padding: 10px;
+    background: #ff3b5c;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 5px;
+  }
+  .contact-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0a0a0f;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .del-btn {
+    background: none;
+    border: none;
+    color: #ff3b5c;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .police-item {
+    background: #0a0a0f;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .police-item a { color: #4ade80; text-decoration: none; }
+  .fake-call-btn {
+    width: 100%;
+    padding: 12px;
+    background: #333;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  .lang-selector {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: #16161f;
+    color: white;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .fake-call-screen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #1a2a3a, #0a0a0f 60%);
+    z-index: 9999;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 60px 20px 50px;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+  .call-top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 40px;
+  }
+  .caller-avatar {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: #2a2a3a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 50px;
+    margin-bottom: 20px;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.15); }
+    70% { box-shadow: 0 0 0 25px rgba(255,255,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+  }
+  .caller-name {
+    font-size: 28px;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 8px;
+  }
+  .call-status {
+    font-size: 15px;
+    color: #999;
+  }
+  .call-actions {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 320px;
+  }
+  .call-btn-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .call-btn-wrap span {
+    font-size: 13px;
+    color: #ccc;
+  }
+  .call-action-btn {
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    color: white;
+  }
+  .call-action-btn.decline {
+    background: #ff3b30;
+    transform: rotate(135deg);
+  }
+  .call-action-btn.accept {
+    background: #34c759;
+  }
+  #mainAppScreen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+</style>
+</head>
+<body>
+
+<div id="trackViewerScreen" style="display:none; width:100%; max-width:420px; text-align:center; padding-top:40px;">
+  <h1>📍 Live Location</h1>
+  <div class="subtitle" id="trackSubtitle">Waiting for location update...</div>
+  <div id="trackMapWrap" style="margin-top:20px; border-radius:14px; overflow:hidden; display:none;">
+    <iframe id="trackMapFrame" width="100%" height="300" style="border:0;" loading="lazy"></iframe>
+  </div>
+  <div id="trackLastUpdated" style="margin-top:14px; font-size:13px; color:#999;"></div>
+  <a id="trackOpenMaps" href="#" target="_blank" style="display:none; margin-top:16px; color:#4ade80; text-decoration:none; font-weight:bold;">Open in Google Maps →</a>
+</div>
+
+<div id="mainAppScreen">
+<select class="lang-selector" id="langSelector" onchange="setLanguage(this.value)">
+  <option value="en">English</option>
+  <option value="hi">हिंदी</option>
+  <option value="mr">मराठी</option>
+</select>
+
+<h1>🛡️ <span id="txt-title">PocketGuardian AI</span></h1>
+<div class="subtitle" id="txt-subtitle">SOS Safety — Tap the button in an emergency</div>
+<div id="offlineBanner" style="display:none; background:#3a2a0a; color:#ffb84d; padding:8px 14px; border-radius:8px; font-size:12px; margin-bottom:10px;">📡 You're offline — SOS will still work using saved contacts</div>
+
+<button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+<div class="status" id="status"></div>
+<button id="cancelSosBtn" onclick="cancelSOSCountdown()" style="display:none; margin-top:10px; padding:10px 20px; background:#333; border:none; border-radius:8px; color:white; font-weight:bold; cursor:pointer;">Cancel</button>
+
+<button class="fake-call-btn" onclick="fakeCall()">📞 <span id="txt-fakecall">Emergency Call</span></button>
+
+<div class="section">
+  <h3 id="txt-contacts-h">Emergency Contacts</h3>
+  <input type="text" id="contactName" placeholder="Name">
+  <input type="tel" id="contactPhone" placeholder="Phone (with country code, e.g. 91XXXXXXXXXX)">
+  <button class="add-btn" onclick="addContact()" id="txt-addbtn">+ Add Contact</button>
+  <div id="contactList" style="margin-top:12px;"></div>
+</div>
+
+<div class="section">
+  <h3 id="txt-police-h">Nearby Police Stations</h3>
+  <div id="policeList"></div>
+</div>
+
+<div class="section" id="safetyToolsSection">
+  <h3 id="txt-safety-h">Safety Tools</h3>
+  <button class="add-btn" style="background:#34c759; margin-bottom:10px;" onclick="imSafe()" id="txt-imsafe">✅ I'm Safe</button>
+  <button class="add-btn" style="background:#3b82f6; margin-bottom:10px;" onclick="toggleLiveShare()" id="liveShareBtn">📍 Share Live Location</button>
+  <div id="liveShareInfo" style="margin-bottom:10px; font-size:13px; color:#4ade80; word-break:break-all;"></div>
+  <div id="qrCodeBox" style="display:none; background:white; padding:14px; border-radius:10px; margin-bottom:10px; text-align:center;">
+    <div id="qrCodeCanvas" style="display:inline-block;"></div>
+    <div style="color:#333; font-size:12px; margin-top:8px;">Scan to open live location link</div>
+  </div>
+  <button class="add-btn" style="background:#ff9d4d;" onclick="toggleRecording()" id="recordBtn">🎥 Record Video Evidence</button>
+  <div id="recordingInfo" style="margin-top:10px; font-size:13px; color:#ff9d4d;"></div>
+  <video id="evidencePreview" autoplay muted playsinline style="display:none; width:100%; border-radius:10px; margin-top:10px; background:#000;"></video>
+
+  <button class="add-btn" style="background:#a855f7; margin-top:10px;" onclick="enableShakeToSOS()" id="shakeBtn">🤳 Enable Shake to SOS</button>
+  <div id="shakeInfo" style="margin-top:8px; font-size:13px; color:#c084fc;"></div>
+
+  <button class="add-btn" style="background:#25D366; margin-top:10px;" onclick="sendViaWhatsApp()" id="whatsappBtn">📱 Send Alert via WhatsApp</button>
+  <div id="whatsappInfo" style="margin-top:8px; font-size:13px; color:#25D366;"></div>
+
+  <button class="add-btn" style="background:#1e293b; margin-top:10px; display:none;" onclick="installApp()" id="installBtn">⬇️ Install App on Home Screen</button>
+  <div id="installInfo" style="margin-top:8px; font-size:13px; color:#94a3b8;"></div>
+</div>
+
+<!-- Fake Incoming Call Screen -->
+<div id="fakeCallScreen" class="fake-call-screen">
+  <div class="call-top">
+    <div class="caller-avatar">👤</div>
+    <div class="caller-name" id="callerName">Mom</div>
+    <div class="call-status" id="callStatusText">Incoming call...</div>
+  </div>
+  <div class="call-actions">
+    <div class="call-btn-wrap">
+      <button class="call-action-btn decline" onclick="endFakeCall()">📞</button>
+      <span>Decline</span>
+    </div>
+    <div class="call-btn-wrap">
+      <button class="call-action-btn accept" onclick="acceptFakeCall()">📞</button>
+      <span>Accept</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ---- SUPABASE CONFIG: replace these two lines with your own ----
+const SUPABASE_URL = "https://wutpzxrokrgluckdhqnb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_69Tw2dVsKdnJKIXKJQZeXw_nGvQ5H4J";
+let supabaseClient = null;
+try {
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (e) {
+  console.error("Supabase failed to load:", e);
+}
+
+// Static police station list (edit with your local area stations)
+const policeStations = [
+  { name: "Satara City Police Station", phone: "100" },
+  { name: "MIDC Police Station, Satara", phone: "100" },
+  { name: "Women Helpline", phone: "1091" }
+];
+
+// ---- MULTI-LANGUAGE SUPPORT ----
+const translations = {
+  en: {
+    title: "PocketGuardian AI",
+    subtitle: "SOS Safety — Tap the button in an emergency",
+    fakecall: "Emergency Call",
+    contactsH: "Emergency Contacts",
+    addbtn: "+ Add Contact",
+    policeH: "Nearby Police Stations",
+    namePh: "Name",
+    phonePh: "Phone (with country code, e.g. 91XXXXXXXXXX)",
+    gettingLocation: "Getting your location...",
+    noGeo: "Geolocation not supported on this device.",
+    noContacts: "No emergency contacts added yet!",
+    locCaptured: "Location captured. Opening SMS...",
+    locDenied: "Location access denied. Enable location permission.",
+    fillFields: "Fill both fields",
+    smsMessage: "EMERGENCY! I need help. My location:",
+    call: "Call",
+    safetyH: "Safety Tools",
+    imSafeBtn: "✅ I'm Safe",
+    imSafeMsg: "I am safe now. No need to worry. 🙂",
+    shareStart: "📍 Share Live Location",
+    shareStop: "⏹️ Stop Sharing Location",
+    shareStarted: "Live location sharing started. Link copied — send it to your contact:",
+    shareStopped: "Live location sharing stopped."
+  },
+  hi: {
+    title: "PocketGuardian AI",
+    subtitle: "एसओएस सुरक्षा — आपातकाल में बटन दबाएं",
+    fakecall: "आपातकालीन कॉल",
+    contactsH: "आपातकालीन संपर्क",
+    addbtn: "+ संपर्क जोड़ें",
+    policeH: "नजदीकी पुलिस स्टेशन",
+    namePh: "नाम",
+    phonePh: "फ़ोन नंबर (देश कोड सहित, जैसे 91XXXXXXXXXX)",
+    gettingLocation: "आपका स्थान प्राप्त किया जा रहा है...",
+    noGeo: "इस डिवाइस पर लोकेशन सुविधा उपलब्ध नहीं है।",
+    noContacts: "अभी तक कोई आपातकालीन संपर्क नहीं जोड़ा गया!",
+    locCaptured: "स्थान प्राप्त हुआ। एसएमएस खोला जा रहा है...",
+    locDenied: "स्थान की अनुमति नहीं मिली। कृपया अनुमति दें।",
+    fillFields: "कृपया दोनों फ़ील्ड भरें",
+    smsMessage: "आपातकाल! मुझे मदद चाहिए। मेरा स्थान:",
+    call: "कॉल करें",
+    safetyH: "सुरक्षा उपकरण",
+    imSafeBtn: "✅ मैं सुरक्षित हूं",
+    imSafeMsg: "मैं अभी सुरक्षित हूं। चिंता करने की जरूरत नहीं है। 🙂",
+    shareStart: "📍 लाइव लोकेशन शेयर करें",
+    shareStop: "⏹️ लोकेशन शेयरिंग बंद करें",
+    shareStarted: "लाइव लोकेशन शेयरिंग शुरू हुई। लिंक कॉपी हो गया — अपने संपर्क को भेजें:",
+    shareStopped: "लाइव लोकेशन शेयरिंग बंद हो गई।"
+  },
+  mr: {
+    title: "PocketGuardian AI",
+    subtitle: "एसओएस सुरक्षा — आणीबाणीत बटण दाबा",
+    fakecall: "आणीबाणी कॉल",
+    contactsH: "आणीबाणी संपर्क",
+    addbtn: "+ संपर्क जोडा",
+    policeH: "जवळचे पोलीस स्टेशन",
+    namePh: "नाव",
+    phonePh: "फोन नंबर (देश कोडसह, उदा. 91XXXXXXXXXX)",
+    gettingLocation: "तुमचे स्थान मिळवत आहे...",
+    noGeo: "या डिव्हाइसवर लोकेशन सुविधा उपलब्ध नाही.",
+    noContacts: "अद्याप कोणताही आणीबाणी संपर्क जोडलेला नाही!",
+    locCaptured: "स्थान मिळाले. एसएमएस उघडत आहे...",
+    locDenied: "स्थानाची परवानगी नाकारली. कृपया परवानगी द्या.",
+    fillFields: "कृपया दोन्ही रकाने भरा",
+    smsMessage: "आणीबाणी! मला मदत हवी आहे. माझे स्थान:",
+    call: "कॉल करा",
+    safetyH: "सुरक्षा साधने",
+    imSafeBtn: "✅ मी सुरक्षित आहे",
+    imSafeMsg: "मी आता सुरक्षित आहे. काळजी करण्याची गरज नाही. 🙂",
+    shareStart: "📍 लाइव्ह लोकेशन शेअर करा",
+    shareStop: "⏹️ लोकेशन शेअरिंग थांबवा",
+    shareStarted: "लाइव्ह लोकेशन शेअरिंग सुरू झाले. लिंक कॉपी झाली — तुमच्या संपर्काला पाठवा:",
+    shareStopped: "लाइव्ह लोकेशन शेअरिंग थांबले."
+  }
+};
+
+let currentLang = localStorage.getItem("sosLang") || "en";
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem("sosLang", lang);
+  const t = translations[lang];
+  document.getElementById("txt-title").textContent = t.title;
+  document.getElementById("txt-subtitle").textContent = t.subtitle;
+  document.getElementById("txt-fakecall").textContent = t.fakecall;
+  document.getElementById("txt-contacts-h").textContent = t.contactsH;
+  document.getElementById("txt-addbtn").textContent = t.addbtn;
+  document.getElementById("txt-police-h").textContent = t.policeH;
+  document.getElementById("contactName").placeholder = t.namePh;
+  document.getElementById("contactPhone").placeholder = t.phonePh;
+  document.getElementById("langSelector").value = lang;
+  document.getElementById("txt-safety-h").textContent = t.safetyH;
+  document.getElementById("txt-imsafe").textContent = t.imSafeBtn;
+  document.getElementById("liveShareBtn").textContent = isSharing ? t.shareStop : t.shareStart;
+  renderPolice();
+}
+
+function renderPolice() {
+  const list = document.getElementById("policeList");
+  const t = translations[currentLang];
+  list.innerHTML = "";
+  policeStations.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "police-item";
+    div.innerHTML = `<span>${p.name}</span><a href="tel:${p.phone}">${t.call}</a>`;
+    list.appendChild(div);
+  });
+}
+
+async function loadContacts() {
+  if (!supabaseClient) return;
+
+  if (!navigator.onLine) {
+    renderContactsFromCache();
+    return;
+  }
+
+  const { data, error } = await supabaseClient.from("contacts").select("*").order("created_at");
+  const list = document.getElementById("contactList");
+  if (error) {
+    console.error(error);
+    renderContactsFromCache();
+    return;
+  }
+  // Cache locally for offline use
+  try { localStorage.setItem("cachedContacts", JSON.stringify(data)); } catch (e) {}
+
+  list.innerHTML = "";
+  data.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "contact-item";
+    div.innerHTML = `<span>${c.name} - ${c.phone}</span>
+      <button class="del-btn" onclick="deleteContact('${c.id}')">✕</button>`;
+    list.appendChild(div);
+  });
+}
+
+function renderContactsFromCache() {
+  const list = document.getElementById("contactList");
+  list.innerHTML = "";
+  let cached = [];
+  try { cached = JSON.parse(localStorage.getItem("cachedContacts") || "[]"); } catch (e) {}
+
+  if (cached.length === 0) {
+    list.innerHTML = `<div style="color:#999; font-size:13px;">Offline — no cached contacts found.</div>`;
+    return;
+  }
+
+  cached.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "contact-item";
+    div.innerHTML = `<span>${c.name} - ${c.phone}</span>`;
+    list.appendChild(div);
+  });
+}
+
+async function addContact() {
+  const name = document.getElementById("contactName").value.trim();
+  const phone = document.getElementById("contactPhone").value.trim();
+  if (!name || !phone) { alert(translations[currentLang].fillFields); return; }
+  const { error } = await supabaseClient.from("contacts").insert([{ name, phone }]);
+  if (error) { console.error(error); alert("Error saving contact"); return; }
+  document.getElementById("contactName").value = "";
+  document.getElementById("contactPhone").value = "";
+  loadContacts();
+}
+
+async function deleteContact(id) {
+  await supabaseClient.from("contacts").delete().eq("id", id);
+  loadContacts();
+}
+
+let sosCountdownTimer = null;
+let sosCountdownValue = 3;
+
+function startSOSCountdown() {
+  const sosBtn = document.getElementById("sosBtn");
+  const cancelBtn = document.getElementById("cancelSosBtn");
+  const status = document.getElementById("status");
+
+  sosCountdownValue = 3;
+  sosBtn.textContent = sosCountdownValue;
+  cancelBtn.style.display = "inline-block";
+  status.textContent = "";
+
+  if (navigator.vibrate) navigator.vibrate(200);
+
+  sosCountdownTimer = setInterval(() => {
+    sosCountdownValue--;
+    if (sosCountdownValue > 0) {
+      sosBtn.textContent = sosCountdownValue;
+      if (navigator.vibrate) navigator.vibrate(200);
+    } else {
+      clearInterval(sosCountdownTimer);
+      sosBtn.textContent = "SOS";
+      cancelBtn.style.display = "none";
+      executeSOS();
+    }
+  }, 1000);
+}
+
+function cancelSOSCountdown() {
+  clearInterval(sosCountdownTimer);
+  const sosBtn = document.getElementById("sosBtn");
+  const cancelBtn = document.getElementById("cancelSosBtn");
+  sosBtn.textContent = "SOS";
+  cancelBtn.style.display = "none";
+  document.getElementById("status").textContent = "SOS cancelled.";
+  setTimeout(() => { document.getElementById("status").textContent = ""; }, 2500);
+}
+
+function executeSOS() {
+  const status = document.getElementById("status");
+  const t = translations[currentLang];
+  status.textContent = t.gettingLocation;
+
+  if (!navigator.geolocation) {
+    status.textContent = t.noGeo;
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+    const message = encodeURIComponent(`${t.smsMessage} ${mapsLink}`);
+
+    // ---- OFFLINE MODE: skip Supabase entirely, use cached contacts ----
+    if (!navigator.onLine) {
+      let cached = [];
+      try { cached = JSON.parse(localStorage.getItem("cachedContacts") || "[]"); } catch (e) {}
+
+      if (cached.length === 0) {
+        status.textContent = t.noContacts;
+        return;
+      }
+
+      const phones = cached.map(c => c.phone).join(",");
+      status.textContent = "📡 Offline mode — sending SMS directly (no internet needed).";
+      window.location.href = `sms:${phones}?body=${message}`;
+      return;
+    }
+
+    // ---- ONLINE MODE ----
+    try {
+      // Save log to Supabase
+      await supabaseClient.from("sos_logs").insert([{ latitude: lat, longitude: lng }]);
+
+      // Get contacts and open SMS with location
+      const { data: contacts, error } = await supabaseClient.from("contacts").select("*");
+      if (error) throw error;
+
+      if (!contacts || contacts.length === 0) {
+        status.textContent = t.noContacts;
+        return;
+      }
+
+      const phones = contacts.map(c => c.phone).join(",");
+      status.textContent = t.locCaptured;
+      window.location.href = `sms:${phones}?body=${message}`;
+
+    } catch (e) {
+      // Network/Supabase failed mid-flow — fall back to cached contacts so SMS still goes out
+      console.error("Online SOS flow failed, falling back to cache:", e);
+      let cached = [];
+      try { cached = JSON.parse(localStorage.getItem("cachedContacts") || "[]"); } catch (err) {}
+
+      if (cached.length === 0) {
+        status.textContent = t.noContacts;
+        return;
+      }
+
+      const phones = cached.map(c => c.phone).join(",");
+      status.textContent = "⚠️ Connection issue — sent using saved contacts.";
+      window.location.href = `sms:${phones}?body=${message}`;
+    }
+
+  }, (err) => {
+    if (err.code === 1) {
+      status.textContent = t.locDenied; // PERMISSION_DENIED
+    } else if (err.code === 2) {
+      status.textContent = "Location unavailable — try moving near a window or outdoors.";
+    } else if (err.code === 3) {
+      status.textContent = "Location timed out — weak GPS signal, try again.";
+    } else {
+      status.textContent = t.locDenied;
+    }
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+}
+
+let ringInterval = null;
+
+function fakeCall() {
+  document.getElementById("fakeCallScreen").style.display = "flex";
+  document.getElementById("callStatusText").textContent = "Incoming call...";
+
+  // Vibrate pattern if supported (silent phones will still show visual ring)
+  if (navigator.vibrate) {
+    ringInterval = setInterval(() => navigator.vibrate([500, 300]), 1600);
+    navigator.vibrate([500, 300]);
+  }
+}
+
+function acceptFakeCall() {
+  clearInterval(ringInterval);
+  if (navigator.vibrate) navigator.vibrate(0);
+  document.getElementById("callStatusText").textContent = "00:01";
+  let seconds = 1;
+  const timer = setInterval(() => {
+    seconds++;
+    const m = String(Math.floor(seconds / 60)).padStart(2, "0");
+    const s = String(seconds % 60).padStart(2, "0");
+    document.getElementById("callStatusText").textContent = `${m}:${s}`;
+  }, 1000);
+  // Auto end after 10 seconds of "talking"
+  setTimeout(() => {
+    clearInterval(timer);
+    endFakeCall();
+  }, 10000);
+}
+
+function endFakeCall() {
+  clearInterval(ringInterval);
+  if (navigator.vibrate) navigator.vibrate(0);
+  document.getElementById("fakeCallScreen").style.display = "none";
+}
+
+// ---- PWA INSTALL PROMPT ----
+let deferredInstallPrompt = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.style.display = "block";
+});
+
+function installApp() {
+  const info = document.getElementById("installInfo");
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then((choice) => {
+      if (choice.outcome === "accepted") {
+        info.textContent = "App installed! Check your home screen.";
+      } else {
+        info.textContent = "Installation cancelled.";
+      }
+      deferredInstallPrompt = null;
+      document.getElementById("installBtn").style.display = "none";
+    });
+  } else if (isIOS) {
+    info.textContent = "On iPhone: tap the Share icon (⬆️) in Safari, then 'Add to Home Screen'.";
+  } else {
+    info.textContent = "Use your browser menu (⋮) and select 'Add to Home Screen' or 'Install App'.";
+  }
+}
+
+window.addEventListener("appinstalled", () => {
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.style.display = "none";
+});
+
+// Show install button on iOS too (no beforeinstallprompt event exists there)
+if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+  const iosInstallBtn = document.getElementById("installBtn");
+  if (iosInstallBtn) iosInstallBtn.style.display = "block";
+}
+
+// ---- WHATSAPP ALERT ----
+function sendViaWhatsApp() {
+  const info = document.getElementById("whatsappInfo");
+  const t = translations[currentLang];
+
+  if (!navigator.geolocation) {
+    info.textContent = t.noGeo;
+    return;
+  }
+
+  info.textContent = t.gettingLocation;
+
+  navigator.geolocation.getCurrentPosition((pos) => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+    const message = encodeURIComponent(`${t.smsMessage} ${mapsLink}`);
+
+    info.textContent = "Opening WhatsApp — choose a contact to send to.";
+
+    // No phone number specified — WhatsApp opens its own contact picker
+    window.location.href = `https://api.whatsapp.com/send?text=${message}`;
+
+    setTimeout(() => { info.textContent = ""; }, 4000);
+  }, (err) => {
+    if (err.code === 1) {
+      info.textContent = t.locDenied;
+    } else if (err.code === 2) {
+      info.textContent = "Location unavailable — try moving near a window or outdoors.";
+    } else if (err.code === 3) {
+      info.textContent = "Location timed out — weak GPS signal, try again.";
+    } else {
+      info.textContent = t.locDenied;
+    }
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+}
+
+// ---- SHAKE TO TRIGGER SOS ----
+let shakeEnabled = false;
+let lastShakeTime = 0;
+let lastX = null, lastY = null, lastZ = null;
+let shakeCount = 0;
+let shakeWindowStart = 0;
+
+const SHAKE_THRESHOLD = 18; // higher = less sensitive
+const SHAKES_NEEDED = 3;
+const SHAKE_WINDOW_MS = 1500;
+const SHAKE_COOLDOWN_MS = 5000;
+
+function handleMotion(event) {
+  const acc = event.accelerationIncludingGravity;
+  if (!acc || acc.x === null) return;
+
+  const now = Date.now();
+  if (lastX === null) {
+    lastX = acc.x; lastY = acc.y; lastZ = acc.z;
+    return;
+  }
+
+  const delta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
+  lastX = acc.x; lastY = acc.y; lastZ = acc.z;
+
+  if (delta > SHAKE_THRESHOLD) {
+    if (now - shakeWindowStart > SHAKE_WINDOW_MS) {
+      shakeWindowStart = now;
+      shakeCount = 1;
+    } else {
+      shakeCount++;
+    }
+
+    if (shakeCount >= SHAKES_NEEDED && (now - lastShakeTime > SHAKE_COOLDOWN_MS)) {
+      lastShakeTime = now;
+      shakeCount = 0;
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      startSOSCountdown();
+    }
+  }
+}
+
+function enableShakeToSOS() {
+  const btn = document.getElementById("shakeBtn");
+  const info = document.getElementById("shakeInfo");
+
+  if (shakeEnabled) {
+    window.removeEventListener("devicemotion", handleMotion);
+    shakeEnabled = false;
+    btn.textContent = "🤳 Enable Shake to SOS";
+    btn.style.background = "#a855f7";
+    info.textContent = "Shake to SOS disabled.";
+    setTimeout(() => { info.textContent = ""; }, 3000);
+    return;
+  }
+
+  if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+    // iOS 13+ requires explicit permission via user gesture
+    DeviceMotionEvent.requestPermission()
+      .then(response => {
+        if (response === "granted") {
+          window.addEventListener("devicemotion", handleMotion);
+          shakeEnabled = true;
+          btn.textContent = "🤳 Shake to SOS: ON";
+          btn.style.background = "#7e22ce";
+          info.textContent = "Shake your phone firmly 3 times to trigger SOS.";
+        } else {
+          info.textContent = "Motion permission denied.";
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        info.textContent = "Could not enable shake detection.";
+      });
+  } else if (typeof DeviceMotionEvent !== "undefined") {
+    // Android and other browsers — no explicit permission needed
+    window.addEventListener("devicemotion", handleMotion);
+    shakeEnabled = true;
+    btn.textContent = "🤳 Shake to SOS: ON";
+    btn.style.background = "#7e22ce";
+    info.textContent = "Shake your phone firmly 3 times to trigger SOS.";
+  } else {
+    info.textContent = "Motion sensors not supported on this device.";
+  }
+}
+
+// ---- STANDALONE AUDIO EVIDENCE RECORDING ----
+let evidenceRecorder = null;
+let evidenceChunks = [];
+let isRecordingEvidence = false;
+let recordingCountdownTimer = null;
+
+function toggleRecording() {
+  if (isRecordingEvidence) {
+    stopEvidenceRecording();
+  } else {
+    startEvidenceRecording();
+  }
+}
+
+function startEvidenceRecording() {
+  const infoBox = document.getElementById("recordingInfo");
+  const btn = document.getElementById("recordBtn");
+  const preview = document.getElementById("evidencePreview");
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    infoBox.textContent = "Recording not supported on this device.";
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: { facingMode: "environment" }
+  })
+    .then(stream => {
+      evidenceChunks = [];
+
+      preview.srcObject = stream;
+      preview.style.display = "block";
+
+      let options = { mimeType: "video/webm" };
+      if (!MediaRecorder.isTypeSupported("video/webm")) options = {};
+
+      evidenceRecorder = new MediaRecorder(stream, options);
+
+      evidenceRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) evidenceChunks.push(e.data);
+      };
+
+      evidenceRecorder.onstop = () => {
+        const blob = new Blob(evidenceChunks, { type: evidenceRecorder.mimeType || "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        a.href = url;
+        a.download = `Evidence_recording_${timestamp}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        stream.getTracks().forEach(track => track.stop());
+        preview.style.display = "none";
+        preview.srcObject = null;
+        infoBox.textContent = "✅ Video saved to downloads.";
+        setTimeout(() => { infoBox.textContent = ""; }, 4000);
+      };
+
+      evidenceRecorder.start();
+      isRecordingEvidence = true;
+      btn.textContent = "⏹️ Stop Recording";
+      btn.style.background = "#ff3b30";
+
+      let seconds = 0;
+      infoBox.textContent = `🔴 Recording video... ${seconds}s`;
+      recordingCountdownTimer = setInterval(() => {
+        seconds++;
+        infoBox.textContent = `🔴 Recording video... ${seconds}s`;
+      }, 1000);
+    })
+    .catch(err => {
+      console.error("Camera/mic access denied:", err);
+      infoBox.textContent = "🎥 Camera/mic permission denied.";
+    });
+}
+
+function stopEvidenceRecording() {
+  const infoBox = document.getElementById("recordingInfo");
+  const btn = document.getElementById("recordBtn");
+
+  if (evidenceRecorder && evidenceRecorder.state !== "inactive") {
+    evidenceRecorder.stop();
+  }
+  clearInterval(recordingCountdownTimer);
+  isRecordingEvidence = false;
+  btn.textContent = "🎥 Record Video Evidence";
+  btn.style.background = "#ff9d4d";
+}
+
+// ---- I'M SAFE CHECK-IN ----
+async function imSafe() {
+  const t = translations[currentLang];
+  if (!supabaseClient) { alert("Service unavailable."); return; }
+  const { data: contacts } = await supabaseClient.from("contacts").select("*");
+  if (!contacts || contacts.length === 0) {
+    alert(t.noContacts);
+    return;
+  }
+  const phones = contacts.map(c => c.phone).join(",");
+  const message = encodeURIComponent(t.imSafeMsg);
+  window.location.href = `sms:${phones}?body=${message}`;
+}
+
+// ---- LIVE LOCATION SHARING ----
+let isSharing = false;
+let watchId = null;
+let currentSessionId = null;
+
+function generateSessionId() {
+  return "trk_" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+}
+
+async function toggleLiveShare() {
+  const t = translations[currentLang];
+  const infoBox = document.getElementById("liveShareInfo");
+  const btn = document.getElementById("liveShareBtn");
+
+  if (!isSharing) {
+    if (!navigator.geolocation) { alert(t.noGeo); return; }
+    if (!supabaseClient) { alert("Service unavailable."); return; }
+
+    currentSessionId = generateSessionId();
+    isSharing = true;
+    btn.textContent = t.shareStop;
+
+    watchId = navigator.geolocation.watchPosition(async (pos) => {
+      await supabaseClient.from("live_tracking").upsert({
+        session_id: currentSessionId,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        updated_at: new Date().toISOString(),
+        active: true
+      });
+    }, (err) => {
+      console.error("Live share location error:", err);
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}?track=${currentSessionId}`;
+
+    if (navigator.clipboard) {
+      try { await navigator.clipboard.writeText(shareUrl); } catch (e) {}
+    }
+
+    infoBox.innerHTML = `${t.shareStarted}<br><a href="${shareUrl}" target="_blank" style="color:#4ade80;">${shareUrl}</a>`;
+
+    // Generate QR code for the share link
+    const qrBox = document.getElementById("qrCodeBox");
+    const qrCanvas = document.getElementById("qrCodeCanvas");
+    qrCanvas.innerHTML = "";
+    if (typeof QRCode !== "undefined") {
+      new QRCode(qrCanvas, {
+        text: shareUrl,
+        width: 160,
+        height: 160,
+        colorDark: "#000000",
+        colorLight: "#ffffff"
+      });
+      qrBox.style.display = "block";
+    }
+
+  } else {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    if (currentSessionId && supabaseClient) {
+      await supabaseClient.from("live_tracking").update({ active: false }).eq("session_id", currentSessionId);
+    }
+    isSharing = false;
+    btn.textContent = t.shareStart;
+    infoBox.textContent = t.shareStopped;
+    document.getElementById("qrCodeBox").style.display = "none";
+    setTimeout(() => { infoBox.textContent = ""; }, 4000);
+  }
+}
+
+// ---- LIVE TRACKING VIEWER MODE ----
+function initTrackViewer(sessionId) {
+  document.getElementById("mainAppScreen").style.display = "none";
+  document.getElementById("trackViewerScreen").style.display = "block";
+
+  async function poll() {
+    const { data, error } = await supabaseClient
+      .from("live_tracking")
+      .select("*")
+      .eq("session_id", sessionId)
+      .single();
+
+    if (error || !data) {
+      document.getElementById("trackSubtitle").textContent = "No location data found for this link.";
+      return;
+    }
+
+    const { latitude, longitude, updated_at, active } = data;
+    document.getElementById("trackSubtitle").textContent = active
+      ? "Live — updating automatically"
+      : "Sharing has ended (last known location shown)";
+
+    const mapFrame = document.getElementById("trackMapFrame");
+    mapFrame.src = `https://maps.google.com/maps?q=${latitude},${longitude}&z=16&output=embed`;
+    document.getElementById("trackMapWrap").style.display = "block";
+
+    const mapsLink = document.getElementById("trackOpenMaps");
+    mapsLink.href = `https://maps.google.com/?q=${latitude},${longitude}`;
+    mapsLink.style.display = "inline-block";
+
+    const time = new Date(updated_at).toLocaleTimeString();
+    document.getElementById("trackLastUpdated").textContent = `Last updated: ${time}`;
+  }
+
+  poll();
+  setInterval(poll, 5000);
+}
+
+const urlParams = new URLSearchParams(window.location.search);
+const trackSessionId = urlParams.get("track");
+
+function updateOfflineBanner() {
+  const banner = document.getElementById("offlineBanner");
+  if (banner) banner.style.display = navigator.onLine ? "none" : "block";
+}
+
+window.addEventListener("online", () => {
+  updateOfflineBanner();
+  loadContacts();
+});
+window.addEventListener("offline", updateOfflineBanner);
+
+if (trackSessionId) {
+  initTrackViewer(trackSessionId);
+} else {
+  setLanguage(currentLang);
+  loadContacts();
+  updateOfflineBanner();
+}
+</script>
+
+</body>
+</html>
