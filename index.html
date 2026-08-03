@@ -281,7 +281,12 @@
 </style>
 </head>
 <body>
-
+<script>
+window.onerror = function(msg, url, line, col) {
+  alert("JS ERROR:\n" + msg + "\nLine: " + line + ", Col: " + col);
+  return false;
+};
+</script>
 <div id="checkinBanner">
   <div id="checkinText">Are you okay? Auto-alert in <span id="checkinCountdown">30</span>s</div>
   <button style="background:#34c759; color:white;" onclick="confirmSafeCheckin()">✅ I'm Fine</button>
