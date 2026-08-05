@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketGuardian AI Pro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#c0154a">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0f; color: #f1f1f1; font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; }
+  h1 { color: #ff3b5c; margin: 20px 0 5px; font-size: 28px; }
+  .subtitle { color: #999; font-size: 13px; margin-bottom: 25px; text-align: center; }
+  
+  .sos-btn {
+    width: 170px; height: 170px; border-radius: 50%;
+    background: radial-gradient(circle, #ff3b5c, #b8002e);
+    border: none; color: white; font-size: 40px; font-weight: bold;
+    box-shadow: 0 0 30px rgba(255,59,92,0.6); cursor: pointer; transition: transform 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sos-btn:active { transform: scale(0.95); }
+  .status { margin-top: 15px; font-size: 14px; color: #4ade80; text-align: center; min-height: 20px; }
+  .section { width: 100%; max-width: 420px; background: #16161f; border-radius: 14px; padding: 18px; margin-top: 25px; }
+  .section h3 { font-size: 15px; color: #ff3b5c; margin-bottom: 12px; }
+  input { width: 100%; padding: 12px; margin-bottom: 8px; border-radius: 8px; border: 1px solid #333; background: #0a0a0f; color: white; font-size: 14px; }
+  .add-btn { width: 100%; padding: 12px; background: #ff3b5c; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 5px; }
+  .lang-selector { position: fixed; top: 14px; right: 14px; background: #16161f; color: white; border: 1px solid #333; border-radius: 8px; padding: 6px 8px; font-size: 13px; z-index: 10001; }
+  
+  /* Routing Map */
+  #routeMapContainer { height: 350px; width: 100%; margin-top: 15px; border-radius: 12px; display: none; border: 1px solid #333; z-index: 5; }
+
+  /* Fake Call UI */
+  .fake-call-screen { 
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: linear-gradient(180deg, #1a2a3a, #0a0a0f 60%); 
+    z-index: 99999; flex-direction: column; justify-content: space-between; align-items: center; padding: 60px 20px 50px; 
+  }
+  .caller-avatar { width: 110px; height: 110px; border-radius: 50%; background: #2a2a3a; display: flex; align-items: center; justify-content: center; font-size: 50px; margin-bottom: 20px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.15); } 70% { box-shadow: 0 0 0 25px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+  .call-action-btn { width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 26px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; }
+  .call-action-btn.decline { background: #ff3b30; transform: rotate(135deg); }
+  .call-action-btn.accept { background: #34c759; }
+
+  #checkinBanner { display: none; position: fixed; top: 0; left: 0; width: 100%; background: #b8002e; color: white; padding: 16px 20px; text-align: center; z-index: 100000; font-size: 15px; border-bottom: 2px solid white; }
+  #checkinBanner button { margin-top: 10px; padding: 10px 22px; border-radius: 8px; border: none; font-weight: bold; background: #34c759; color: white; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="checkinBanner">
+  <div id="checkinText">Safety System: Are you okay? SOS triggers in <span id="checkinCountdown">30</span>s</div>
+  <button onclick="confirmSafeCheckin()">✅ I'm Fine</button>
+</div>
+
+<div id="authScreen" style="width:100%; max-width:420px; padding-top:60px; display:flex; flex-direction:column; align-items:center;">
+  <h1>🛡️ PocketGuardian AI</h1>
+  <div class="subtitle">Secure Authority & Emergency System</div>
+  <div class="section" style="width:100%;">
+    <input type="email" id="authEmail" placeholder="Email">
+    <input type="password" id="authPassword" placeholder="Password">
+    <button class="add-btn" onclick="handleAuthSubmit()">Login</button>
+    <div id="authError" style="color:#ff6b6b; font-size:13px; margin-top:8px; text-align:center;"></div>
+  </div>
+</div>
+
+<div id="mainAppScreen">
+  <select class="lang-selector" id="langSelector" onchange="setLanguage(this.value)">
+    <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+  </select>
+  <button onclick="handleLogout()" style="position:fixed; top:14px; left:14px; background:#16161f; color:#ff6b6b; border:1px solid #333; border-radius:8px; padding:6px 12px; font-size:12px; z-index:10001;">Logout</button>
+
+  <h1 id="txt-title">PocketGuardian AI</h1>
+  <div class="subtitle" id="txt-subtitle">Authority Monitoring & Personal SOS</div>
+
+  <button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+  <div class="status" id="status"></div>
+  <button id="cancelSosBtn" onclick="cancelSOSCountdown()" style="display:none; margin-top:10px; padding:10px 20px; background:#333; border:none; border-radius:8px; color:white; font-weight:bold; cursor:pointer;">Cancel</button>
+
+  <button class="fake-call-btn" onclick="fakeCall()">📞 <span id="txt-fakecall">Emergency Call (Mom)</span></button>
+
+  <div class="section">
+    <h3 id="txt-nav-h">Offline & Live Safety Routes</h3>
+    <button class="add-btn" style="background:#14b8a6; margin-bottom:10px;" onclick="findHelpCenter('police')">👮 Find Nearest Police Station</button>
+    <button class="add-btn" style="background:#0891b2;" onclick="findHelpCenter('hospital')">🏥 Find Nearest Hospital</button>
+    <div id="nearestSafeInfo" style="margin-top:8px; font-size:13px; color:#5eead4; text-align:center;"></div>
+    <div id="routeMapContainer"></div>
+  </div>
+
+  <div class="section">
+    <h3>🛠️ Safety Controls</h3>
+    <button class="add-btn" style="background:#ff9d4d; margin-bottom:10px;" onclick="toggleRecording()" id="recordBtn">🎥 Video Evidence Capture</button>
+    <button class="add-btn" style="background:#a855f7; margin-bottom:10px;" onclick="enableShakeToSOS()" id="shakeBtn">🤳 Enable Shake (6x) to SOS</button>
+    <button class="add-btn" style="background:#ec4899; margin-bottom:10px;" onclick="toggleVoiceSOS()">🎤 Enable Voice SOS (Trigger: Help)</button>
+    <button class="add-btn" style="background:#0ea5e9;" onclick="toggleJourneyMode()">🚶 Journey Monitoring</button>
+    <div id="journeyStatusBox" style="display:none; padding:10px; font-size:12px; color:#0ea5e9;"></div>
+  </div>
+
+  <div class="section">
+    <h3 id="txt-contacts-h">Emergency Contacts</h3>
+    <input type="text" id="contactName" placeholder="Name">
+    <input type="tel" id="contactPhone" placeholder="91XXXXXXXXXX">
+    <button class="add-btn" onclick="addContact()">+ Add Contact</button>
+    <div id="contactList" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- FAKE CALL SCREEN -->
+<div id="fakeCallScreen" class="fake-call-screen">
+  <div style="text-align:center; margin-top:40px;">
+    <div class="caller-avatar">👤</div>
+    <div style="font-size:32px; font-weight:600; color:white;">Mom</div>
+    <div id="callStatusText" style="color:#999; font-size:18px;">Incoming call...</div>
+  </div>
+  <div class="call-actions">
+    <button class="call-action-btn decline" onclick="endFakeCall()">📞</button>
+    <button class="call-action-btn accept" onclick="acceptFakeCall()">📞</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let routeLeafletMap = null;
+let currentLang = "en";
+
+// --- OFFLINE BACKUP DATABASE (SATARA & PUNE) ---
+const BACKUP_POLICE_DB = [
+  // Satara Data
+  { name: "Satara City Police Station", phone: "02162-230580", lat: 17.6894, lng: 73.9918 },
+  { name: "Shahupuri Police Station", phone: "02162-252333", lat: 17.6740, lng: 74.0040 },
+  { name: "Wathar Police Station", phone: "02371-252221", lat: 17.9252, lng: 74.1250 },
+  { name: "Mahabaleshwar Police Station", phone: "02168-260333", lat: 17.9237, lng: 73.6586 },
+  // Pune Data (Selected from PDF)
+  { name: "Wakad Police Station", phone: "020-22934110", lat: 18.5982, lng: 73.7661 },
+  { name: "Sangavi Police Station", phone: "020-27286162", lat: 18.5744, lng: 73.8052 },
+  { name: "Hinjewadi Police Station", phone: "020-22934622", lat: 18.5913, lng: 73.7389 },
+  { name: "Shivajinagar Police Station", phone: "020-25536263", lat: 18.5314, lng: 73.8444 },
+  { name: "Hadapsar Police Station", phone: "020-26996577", lat: 18.5089, lng: 73.9260 },
+  { name: "Swargate Police Station", phone: "020-24452769", lat: 18.4967, lng: 73.8607 },
+  { name: "Kothrud Police Station", phone: "020-25391515", lat: 18.5074, lng: 73.8077 }
+];
+
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; 
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// --- CORE APP LOGIC ---
+async function findHelpCenter(type) {
+  const info = document.getElementById("nearestSafeInfo");
+  const mapDiv = document.getElementById("routeMapContainer");
+  info.textContent = "Calculating nearest help...";
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+    let foundStation = null;
+
+    try {
+      // 1. Try Live API
+      const res = await fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${uLat},${uLng})[amenity~"${type === 'police' ? 'police' : 'hospital'}"];out;`);
+      const data = await res.json();
+      
+      if (data.elements && data.elements.length > 0) {
+        foundStation = { name: data.elements[0].tags.name || "Safe Point", lat: data.elements[0].lat, lng: data.elements[0].lon, phone: data.elements[0].tags.phone || "100" };
+        info.textContent = "Live Result: " + foundStation.name;
+      }
+    } catch (e) { console.log("API Fail, switching to backup"); }
+
+    // 2. Offline Backup Logic (If API fails or no results found)
+    if (!foundStation && type === 'police') {
+      let minDest = Infinity;
+      BACKUP_POLICE_DB.forEach(station => {
+        const d = getDistance(uLat, uLng, station.lat, station.lng);
+        if (d < minDest) { minDest = d; foundStation = station; }
+      });
+      info.textContent = "Offline Backup: " + foundStation.name + " (~" + minDest.toFixed(1) + "km)";
+    }
+
+    if (foundStation) {
+      mapDiv.style.display = "block";
+      if (routeLeafletMap) routeLeafletMap.remove(); 
+      routeLeafletMap = L.map(mapDiv).setView([uLat, uLng], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(routeLeafletMap);
+      L.marker([uLat, uLng]).addTo(routeLeafletMap).bindPopup("You");
+      L.marker([foundStation.lat, foundStation.lng]).addTo(routeLeafletMap).bindPopup(foundStation.name).openPopup();
+      // Main Path (Red)
+      L.polyline([[uLat, uLng], [foundStation.lat, foundStation.lng]], {color: 'red', weight: 6}).addTo(routeLeafletMap);
+      // Alternate Path (Blue Dotted)
+      L.polyline([[uLat, uLng], [foundStation.lat+0.003, foundStation.lng+0.003], [foundStation.lat, foundStation.lng]], {color: 'blue', weight: 4, dashArray: '5,10'}).addTo(routeLeafletMap);
+    } else { info.textContent = "No safety point found nearby."; }
+  });
+}
+
+// --- REUSED FEATURES (COUNTDOWN, SHAKE, RECORD) ---
+let sosTimer = null;
+function startSOSCountdown() {
+  let c = 3; const btn = document.getElementById("sosBtn");
+  document.getElementById("cancelSosBtn").style.display = "block";
+  sosTimer = setInterval(() => {
+    btn.textContent = c; c--;
+    if (c < 0) { clearInterval(sosTimer); btn.textContent = "SOS"; executeSOS(); }
+  }, 1000);
+}
+
+function cancelSOSCountdown() { clearInterval(sosTimer); document.getElementById("sosBtn").textContent = "SOS"; document.getElementById("cancelSosBtn").style.display = "none"; }
+
+async function executeSOS() {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    const { data: contacts } = await supabaseClient.from("contacts").select("phone");
+    const phones = contacts.map(c => c.phone).join(",");
+    const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+    window.location.href = `sms:${phones}?body=EMERGENCY! I need help. Location: ${mapsLink}`;
+    await supabaseClient.from("sos_logs").insert([{latitude: lat, longitude: lng, user_id: currentUser.id}]);
+  });
+}
+
+let shakeCount = 0; let lastShake = 0;
+function enableShakeToSOS() {
+  window.addEventListener('devicemotion', (e) => {
+    const acc = e.accelerationIncludingGravity; const total = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+    if (total > 30) { const now = Date.now(); if (now - lastShake > 300) { shakeCount++; lastShake = now; if (shakeCount >= 6) { shakeCount = 0; startSOSCountdown(); } } }
+  });
+  document.getElementById("shakeBtn").textContent = "🤳 Shake SOS: ENABLED";
+}
+
+function fakeCall() { document.getElementById("fakeCallScreen").style.display = "flex"; }
+function endFakeCall() { document.getElementById("fakeCallScreen").style.display = "none"; }
+function acceptFakeCall() { document.getElementById("callStatusText").textContent = "00:01"; }
+
+async function toggleRecording() {
+  const video = document.getElementById("evidencePreview");
+  const stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+  video.srcObject = stream; video.style.display = "block";
+  const recorder = new MediaRecorder(stream);
+  let chunks = []; recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, {type: 'video/webm'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `Evidence_${Date.now()}.webm`; a.click();
+    stream.getTracks().forEach(t => t.stop());
+  };
+  recorder.start(); setTimeout(() => { recorder.stop(); video.style.display="none"; }, 5000);
+}
+
+// --- AUTH & CONTACTS ---
+async function handleAuthSubmit() {
+  const email = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (data.user) onAuthSuccess(data.user);
+}
+function onAuthSuccess(user) { currentUser = user; document.getElementById("authScreen").style.display = "none"; document.getElementById("mainAppScreen").style.display = "flex"; loadContacts(); }
+async function loadContacts() {
+  const { data } = await supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id);
+  const list = document.getElementById("contactList"); list.innerHTML = data.map(c => `<div class="contact-item"><span>${c.name}</span><button class="del-btn" onclick="deleteContact('${c.id}')">✕</button></div>`).join("");
+}
+function addContact() {
+  const n = document.getElementById("contactName").value, p = document.getElementById("contactPhone").value;
+  supabaseClient.from("contacts").insert([{name: n, phone: p, user_id: currentUser.id}]).then(loadContacts);
+}
+function deleteContact(id) { supabaseClient.from("contacts").delete().eq("id", id).then(loadContacts); }
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+
+window.onload = () => {
+  supabaseClient.auth.getSession().then(({data}) => { if (data.session) onAuthSuccess(data.session.user); });
+};
+</script>
+</body>
+</html>
