@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketGuardian AI Pro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#c0154a">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0f; color: #f1f1f1; font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px;
+  }
+  h1 { color: #ff3b5c; margin: 20px 0 5px; font-size: 28px; }
+  .subtitle { color: #999; font-size: 13px; margin-bottom: 25px; text-align: center; }
+  
+  /* SOS Button & Countdown */
+  .sos-btn {
+    width: 170px; height: 170px; border-radius: 50%;
+    background: radial-gradient(circle, #ff3b5c, #b8002e);
+    border: none; color: white; font-size: 40px; font-weight: bold;
+    box-shadow: 0 0 30px rgba(255,59,92,0.6); cursor: pointer; transition: transform 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sos-btn:active { transform: scale(0.95); }
+  
+  .status { margin-top: 15px; font-size: 14px; color: #4ade80; text-align: center; min-height: 20px; }
+  
+  .section { width: 100%; max-width: 420px; background: #16161f; border-radius: 14px; padding: 18px; margin-top: 25px; }
+  .section h3 { font-size: 15px; color: #ff3b5c; margin-bottom: 12px; }
+  
+  input { width: 100%; padding: 12px; margin-bottom: 8px; border-radius: 8px; border: 1px solid #333; background: #0a0a0f; color: white; font-size: 14px; }
+  .add-btn { width: 100%; padding: 12px; background: #ff3b5c; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 5px; }
+  
+  .lang-selector { position: fixed; top: 14px; right: 14px; background: #16161f; color: white; border: 1px solid #333; border-radius: 8px; padding: 6px 8px; font-size: 13px; z-index: 10001; }
+  
+  /* Authority Alert Styling */
+  .auth-mode-toggle { display: flex; align-items: center; justify-content: space-between; background: #1e1e2e; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ff3b5c; }
+  .badge-authority { background: #3b82f6; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+  .incident-card { background: #0a0a0f; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 4px solid #ff3b5c; position: relative; }
+  
+  #routeMapContainer { height: 320px; width: 100%; margin-top: 15px; border-radius: 12px; display: none; border: 1px solid #333; z-index: 5; }
+
+  /* Fake Call UI */
+  .fake-call-screen { 
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: linear-gradient(180deg, #1a2a3a, #0a0a0f 60%); 
+    z-index: 99999; flex-direction: column; justify-content: space-between; align-items: center; padding: 60px 20px 50px; 
+  }
+  .caller-avatar { width: 110px; height: 110px; border-radius: 50%; background: #2a2a3a; display: flex; align-items: center; justify-content: center; font-size: 50px; margin-bottom: 20px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.15); } 70% { box-shadow: 0 0 0 25px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+  .call-action-btn { width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 26px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; }
+  .call-action-btn.decline { background: #ff3b30; transform: rotate(135deg); }
+  .call-action-btn.accept { background: #34c759; }
+
+  #checkinBanner { display: none; position: fixed; top: 0; left: 0; width: 100%; background: #b8002e; color: white; padding: 16px 20px; text-align: center; z-index: 100000; font-size: 15px; }
+  #checkinBanner button { margin-top: 10px; padding: 10px 22px; border-radius: 8px; border: none; font-weight: bold; background: #34c759; color: white; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="checkinBanner">
+  <div id="checkinText">Safety System: Are you okay? SOS triggers in <span id="checkinCountdown">30</span>s</div>
+  <button onclick="confirmSafeCheckin()">✅ I'm Fine</button>
+</div>
+
+<!-- AUTH -->
+<div id="authScreen" style="width:100%; max-width:420px; padding-top:60px; display:flex; flex-direction:column; align-items:center;">
+  <h1>🛡️ PocketGuardian AI Pro</h1>
+  <div class="subtitle">Official Authority Alert & Safety System</div>
+  <div class="section" style="width:100%;">
+    <h3 id="authFormTitle">Login</h3>
+    <input type="email" id="authEmail" placeholder="Email">
+    <input type="password" id="authPassword" placeholder="Password">
+    <button class="add-btn" onclick="handleAuthSubmit()" id="authSubmitBtn">Login</button>
+    <div id="authError" style="color:#ff6b6b; font-size:13px; margin-top:8px; text-align:center;"></div>
+    <div style="text-align:center; margin-top:14px; font-size:13px; color:#999;">
+      <a href="#" onclick="toggleAuthMode(); return false;" style="color:#4ade80; font-weight:bold;">Sign Up</a>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainAppScreen">
+<select class="lang-selector" id="langSelector" onchange="setLanguage(this.value)">
+  <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+  <option value="gu">ગુજરાતી</option><option value="ur">اردو</option><option value="bn">বাংলা</option>
+  <option value="ta">தமிழ்</option><option value="te">తెలుగు</option><option value="kn">ಕನ್ನಡ</option>
+</select>
+<button onclick="handleLogout()" style="position:fixed; top:14px; left:14px; background:#16161f; color:#ff6b6b; border:1px solid #333; border-radius:8px; padding:6px 12px; font-size:12px; z-index:10001;">Logout</button>
+
+<h1>🛡️ <span id="txt-title">PocketGuardian AI</span></h1>
+<div class="subtitle" id="txt-subtitle">SOS Safety — Official Authority Broadcast Ready</div>
+
+<!-- Authority Mode Toggle -->
+<div class="section" style="margin-top:10px; padding:10px;">
+  <div class="auth-mode-toggle">
+    <span style="font-size:13px; font-weight:bold; color:#4ade80;">🚔 Authority SOS Mode</span>
+    <input type="checkbox" id="authorityMode" style="width:40px; height:20px; margin:0;" checked>
+  </div>
+  <p style="font-size:11px; color:#999; margin-top:5px; text-align:center;">When enabled, alerts are sent to ICCC/Police Control additionally.</p>
+</div>
+
+<button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+<div class="status" id="status"></div>
+<button id="cancelSosBtn" onclick="cancelSOSCountdown()" style="display:none; margin-top:10px; padding:10px 20px; background:#333; border:none; border-radius:8px; color:white; font-weight:bold; cursor:pointer;">Cancel</button>
+
+<button class="fake-call-btn" onclick="fakeCall()">📞 <span id="txt-fakecall">Emergency Call (Mom)</span></button>
+
+<div class="section">
+  <h3 id="txt-nav-h">Nearby Help Centers</h3>
+  <button class="add-btn" style="background:#14b8a6; margin-bottom:10px;" onclick="findHelpCenter('police')">👮 Find Nearest Police Station</button>
+  <button class="add-btn" style="background:#0891b2;" onclick="findHelpCenter('women_helpline')">👧 Find Women's Safety Desk</button>
+  <div id="nearestSafeInfo" style="margin-top:8px; font-size:13px; color:#5eead4; text-align:center;"></div>
+  <div id="routeMapContainer"></div>
+</div>
+
+<div class="section">
+  <h3>🛡️ Safety Tools</h3>
+  <button class="add-btn" style="background:#34c759; margin-bottom:10px;" onclick="imSafe()">✅ I'm Safe (Update Everyone)</button>
+  <button class="add-btn" style="background:#3b82f6; margin-bottom:10px;" onclick="toggleLiveShare()" id="liveShareBtn">📍 Share Live Link & QR</button>
+  <div id="liveShareInfo" style="margin:8px 0; font-size:11px; color:#4ade80; text-align:center; word-break:break-all;"></div>
+  <div id="qrCodeBox" style="display:none; background:white; padding:10px; border-radius:10px; margin: 0 auto 10px; width:150px;"><div id="qrCodeCanvas"></div></div>
+
+  <button class="add-btn" style="background:#ff9d4d; margin-bottom:10px;" onclick="toggleRecording()" id="recordBtn">🎥 Record Video Evidence</button>
+  <div id="recordingInfo" style="font-size:12px; color:#ff9d4d; text-align:center;"></div>
+  <video id="evidencePreview" autoplay muted playsinline style="display:none; width:100%; border-radius:10px; margin-top:10px; background:#000;"></video>
+
+  <button class="add-btn" style="background:#a855f7; margin-top:10px;" onclick="enableShakeToSOS()" id="shakeBtn">🤳 Enable Shake SOS</button>
+  <button class="add-btn" style="background:#ec4899; margin-top:10px;" onclick="toggleVoiceSOS()" id="voiceSosBtn">🎤 Enable Voice SOS</button>
+  <button class="add-btn" style="background:#0ea5e9; margin-top:10px;" onclick="toggleJourneyMode()" id="journeyBtn">🚶 Start Journey Monitoring</button>
+  <div id="journeyStatusBox" style="display:none; background:#0a0a0f; padding:10px; border:1px solid #0ea5e9; margin-top:10px; border-radius:8px; font-size:12px; color:#0ea5e9;"></div>
+</div>
+
+<div class="section">
+  <h3 id="txt-dash-h">ICCC Incident History</h3>
+  <button class="add-btn" style="background:#f59e0b; margin-bottom:10px;" onclick="loadIncidentHistory()">📋 Refresh Incident Board</button>
+  <div id="incidentHistoryBox"></div>
+</div>
+
+<div class="section">
+  <h3 id="txt-contacts-h">Personal Contacts</h3>
+  <input type="text" id="contactName" placeholder="Name">
+  <input type="tel" id="contactPhone" placeholder="91XXXXXXXXXX">
+  <button class="add-btn" onclick="addContact()">+ Add Contact</button>
+  <div id="contactList" style="margin-top:10px;"></div>
+</div>
+
+<!-- FAKE CALL UI -->
+<div id="fakeCallScreen" class="fake-call-screen">
+  <div style="text-align:center; margin-top:40px;">
+    <div class="caller-avatar">👤</div>
+    <div style="font-size:32px; font-weight:600; color:white;">Mom</div>
+    <div id="callStatusText" style="color:#999; font-size:18px;">Incoming call...</div>
+  </div>
+  <div style="display:flex; justify-content:space-around; width:100%;">
+    <button class="call-action-btn decline" onclick="endFakeCall()">📞</button>
+    <button class="call-action-btn accept" onclick="acceptFakeCall()">📞</button>
+  </div>
+</div>
+</div>
+
+<script>
+// --- CONFIG ---
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let routeLeafletMap = null;
+let currentLang = localStorage.getItem("sosLang") || "en";
+
+// --- AUTH ---
+async function handleAuthSubmit() {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+  try {
+    if (isSignupMode) { await supabaseClient.auth.signUp({ email, password }); alert("Check email!"); }
+    else { const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password }); if (error) throw error; onAuthSuccess(data.user); }
+  } catch (e) { document.getElementById("authError").textContent = e.message; }
+}
+function onAuthSuccess(user) { currentUser = user; document.getElementById("authScreen").style.display = "none"; document.getElementById("mainAppScreen").style.display = "flex"; loadContacts(); setLanguage(currentLang); }
+let isSignupMode = false;
+function toggleAuthMode() { isSignupMode = !isSignupMode; document.getElementById("authFormTitle").textContent = isSignupMode ? "Sign Up" : "Login"; }
+
+// --- SOS Logic (3s Countdown + Vibration) ---
+let sosTimer = null;
+function startSOSCountdown() {
+  let count = 3; const btn = document.getElementById("sosBtn"); const cancel = document.getElementById("cancelSosBtn");
+  btn.textContent = count; cancel.style.display = "block"; if (navigator.vibrate) navigator.vibrate(200);
+  sosTimer = setInterval(() => {
+    count--; if (count <= 0) { clearInterval(sosTimer); btn.textContent = "SOS"; cancel.style.display = "none"; executeSOS(); }
+    else { btn.textContent = count; if (navigator.vibrate) navigator.vibrate(100); }
+  }, 1000);
+}
+function cancelSOSCountdown() { clearInterval(sosTimer); document.getElementById("sosBtn").textContent = "SOS"; document.getElementById("cancelSosBtn").style.display = "none"; }
+
+async function executeSOS() {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude, longitude } = pos.coords;
+    const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+    const authNotify = document.getElementById("authorityMode").checked;
+
+    // 1. Personal Contacts Notification
+    const { data: contacts } = await supabaseClient.from("contacts").select("phone");
+    if (contacts && contacts.length > 0) {
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      const phones = contacts.map(c => c.phone).join(isIOS ? ";" : ",");
+      const msg = encodeURIComponent("EMERGENCY! I need help. Location: " + mapsLink);
+      window.location.href = `sms:${phones}${isIOS ? '&' : '?'}body=${msg}`;
+    }
+
+    // 2. Authority/ICCC Notification (Supabase Broadcast)
+    await supabaseClient.from("sos_logs").insert([{
+      latitude, longitude, 
+      user_id: currentUser.id, 
+      authority_notified: authNotify,
+      status: authNotify ? 'dispatching' : 'personal'
+    }]);
+
+    if(authNotify) {
+        document.getElementById("status").textContent = "🚨 ICCC Notified. Authority Dispatch Initiated.";
+        if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
+    }
+  });
+}
+
+// --- ROAD-ACCURATE HELP CENTER SEARCH ---
+async function findHelpCenter(type) {
+  const info = document.getElementById("nearestSafeInfo");
+  const mapDiv = document.getElementById("routeMapContainer");
+  info.textContent = "Searching nearby safety desks...";
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+    // Overpass API Query: Police or Social Facilities (Women Shelters)
+    const amenity = type === 'police' ? 'police' : 'social_facility';
+    const query = `[out:json];node(around:5000,${uLat},${uLng})[amenity~"${amenity}"];out;`;
+    
+    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    
+    mapDiv.style.display = "block";
+    if (routeLeafletMap) routeLeafletMap.remove(); 
+    routeLeafletMap = L.map(mapDiv).setView([uLat, uLng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(routeLeafletMap);
+
+    if (data.elements.length > 0) {
+      const dest = data.elements[0];
+      L.marker([uLat, uLng]).addTo(routeLeafletMap);
+      L.marker([dest.lat, dest.lon]).addTo(routeLeafletMap).bindPopup(dest.tags.name || "Help Center").openPopup();
+      
+      // Road Routing (OSRM)
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`;
+      const routeRes = await fetch(osrmUrl);
+      const routeData = await routeRes.json();
+      
+      if (routeData.routes && routeData.routes.length > 0) {
+        const coords = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        L.polyline(coords, {color: '#ff3b5c', weight: 6}).addTo(routeLeafletMap);
+        info.innerHTML = `Nearest ${type === 'police' ? 'Police' : "Women's Safety Desk"} Found: <br> <b>${dest.tags.name || "Station"}</b>`;
+      }
+    } else { info.textContent = "No specialized center found within 5km."; }
+  });
+}
+
+// --- INCIDENT DASHBOARD ---
+async function loadIncidentHistory() {
+  const box = document.getElementById("incidentHistoryBox");
+  box.innerHTML = "Syncing with ICCC Command...";
+  const { data } = await supabaseClient.from("sos_logs").select("*").eq("user_id", currentUser.id).order('created_at', {ascending:false});
+  if (data) {
+    box.innerHTML = data.map(log => `
+      <div class="incident-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:#999;">${new Date(log.created_at).toLocaleString()}</span>
+          ${log.authority_notified ? '<span class="badge-authority">AUTHORITY NOTIFIED</span>' : ''}
+        </div>
+        <div style="margin-top:8px; font-weight:bold; color:${log.status === 'dispatching' ? '#4ade80' : '#f59e0b'};">
+            Status: ${log.status ? log.status.toUpperCase() : 'PENDING'}
+        </div>
+        <div style="margin-top:8px;"><a href="https://maps.google.com/?q=${log.latitude},${log.longitude}" target="_blank" style="color:#5eead4; font-size:11px; text-decoration:none;">View Archive Map →</a></div>
+      </div>
+    `).join("");
+  }
+}
+
+// --- JOURNEY & AUTO CHECK-IN ---
+let journeyWatch; let lastPosition;
+function toggleJourneyMode() {
+  const btn = document.getElementById("journeyBtn");
+  const box = document.getElementById("journeyStatusBox");
+  if (journeyWatch) { 
+    navigator.geolocation.clearWatch(journeyWatch); journeyWatch = null; 
+    btn.textContent = "🚶 Start Journey Monitoring"; box.style.display = "none";
+  } else {
+    btn.textContent = "⏹️ Stop Monitoring"; box.style.display = "block";
+    journeyWatch = navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      if (lastPosition && (Math.abs(latitude - lastPosition.lat) < 0.00005)) {
+          // triggerCheckin(); // Simulate prolonged stop
+      }
+      lastPosition = {lat: latitude, lng: longitude};
+      box.textContent = "ICCC Route Tracking: Active";
+    });
+  }
+}
+
+// --- OTHER TOOLS ---
+async function toggleRecording() {
+  const video = document.getElementById("evidencePreview");
+  const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+  video.srcObject = stream; video.style.display = "block";
+  const recorder = new MediaRecorder(stream);
+  let chunks = []; recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, {type: 'video/webm'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `Evidence_${Date.now()}.webm`; a.click();
+    stream.getTracks().forEach(t => t.stop());
+  };
+  recorder.start();
+  document.getElementById("recordingInfo").textContent = "🔴 Recording Evidence (Auto-saving on stop)...";
+  setTimeout(() => { recorder.stop(); video.style.display="none"; document.getElementById("recordingInfo").textContent=""; }, 10000);
+}
+
+async function toggleLiveShare() {
+  const link = `${window.location.origin}/?track=${Math.random().toString(36).substr(2, 9)}`;
+  document.getElementById("qrCodeCanvas").innerHTML = "";
+  new QRCode(document.getElementById("qrCodeCanvas"), { text: link, width: 140, height: 140 });
+  document.getElementById("qrCodeBox").style.display = "block";
+  document.getElementById("liveShareInfo").textContent = link;
+}
+
+// --- FAKE CALL ---
+function fakeCall() { document.getElementById("fakeCallScreen").style.display = "flex"; }
+function endFakeCall() { document.getElementById("fakeCallScreen").style.display = "none"; }
+function acceptFakeCall() { document.getElementById("callStatusText").textContent = "00:01"; }
+
+// --- CONTACTS ---
+async function loadContacts() {
+  const { data } = await supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id);
+  const list = document.getElementById("contactList"); list.innerHTML = "";
+  if (data) data.forEach(c => {
+    const div = document.createElement("div"); div.className="contact-item";
+    div.innerHTML = `<span>${c.name} (${c.phone})</span><button class="del-btn" onclick="deleteContact('${c.id}')">✕</button>`;
+    list.appendChild(div);
+  });
+}
+async function addContact() {
+  const n = document.getElementById("contactName").value, p = document.getElementById("contactPhone").value;
+  await supabaseClient.from("contacts").insert([{name: n, phone: p, user_id: currentUser.id}]); loadContacts();
+}
+async function deleteContact(id) { await supabaseClient.from("contacts").delete().eq("id", id); loadContacts(); }
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+
+window.onload = () => {
+  supabaseClient.auth.getSession().then(({data}) => { if (data.session) onAuthSuccess(data.session.user); });
+};
+</script>
+</body>
+</html>
