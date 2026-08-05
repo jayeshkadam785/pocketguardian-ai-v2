@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketGuardian AI - ICCC Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#c0154a">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --bg: #0a0a0f; --panel: #16161f; --red: #ff3b5c; --green: #34c759; --blue: #3b82f6; --orange: #f59e0b; --purple: #a855f7; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: #f1f1f1; font-family: 'Segoe UI', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  
+  /* Layout Grid */
+  .dashboard-container { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+  .sidebar { background: #000; padding: 20px; border-right: 1px solid #222; display: flex; flex-direction: column; align-items: center; }
+  .main-content { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; }
+
+  /* Logo & SOS */
+  .logo-text { color: var(--red); font-weight: bold; font-size: 20px; margin-bottom: 30px; text-align: center; }
+  .sos-btn { width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, #ff3b5c, #b8002e); border: none; color: white; font-size: 32px; font-weight: bold; box-shadow: 0 0 30px rgba(255,59,92,0.6); cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+  .sos-btn:active { transform: scale(0.9); }
+
+  /* Columns/Sections */
+  .col { background: var(--panel); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; }
+  .col h3 { font-size: 14px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+  .col h3 span { font-size: 18px; }
+
+  /* Buttons */
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 13px; text-align: center; transition: 0.3s; }
+  .btn-nav { background: var(--green); }
+  .btn-hosp { background: #0891b2; }
+  .btn-ai { background: var(--red); }
+  .btn-voice { background: #ec4899; }
+  .btn-journey { background: #0ea5e9; }
+  .btn-evidence { background: var(--orange); }
+  .btn-share { background: var(--blue); }
+  .btn-refresh { background: var(--orange); padding: 8px; }
+  .btn-add { background: var(--red); }
+
+  /* Status Indicators */
+  .status-tag { font-size: 11px; margin-top: 5px; color: #999; text-align: center; }
+  .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+  .badge-pending { background: var(--orange); color: #000; }
+
+  /* Inputs */
+  input { width: 100%; padding: 10px; background: #000; border: 1px solid #333; border-radius: 6px; color: white; margin-bottom: 8px; font-size: 13px; }
+
+  /* Map Container */
+  #routeMapContainer { height: 250px; width: 100%; border-radius: 8px; margin-top: 10px; display: none; }
+
+  /* Responsive Fix for Screenshot View */
+  @media (max-width: 1000px) { .dashboard-container { grid-template-columns: 1fr; } .sidebar { flex-direction: row; justify-content: space-between; height: auto; } }
+
+  /* Fake Call Overlay */
+  .fake-call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(180deg, #1a2a3a, #0a0a0f 60%); z-index: 99999; flex-direction: column; justify-content: space-between; align-items: center; padding: 60px 20px 50px; }
+  .call-action-btn { width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 26px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+
+<div class="dashboard-container">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo-text">PocketGuardian<br>AI</div>
+    <button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+    <div class="status" id="status" style="margin-top:20px; font-size:12px; color:var(--green);"></div>
+    <button id="cancelSosBtn" onclick="cancelSOSCountdown()" style="display:none; background:none; border:1px solid #333; color:#fff; padding:5px 10px; margin-top:10px; border-radius:5px;">Cancel</button>
+    
+    <select class="lang-selector" id="langSelector" onchange="setLanguage(this.value)" style="margin-top:auto; padding:5px; background:#111; color:#fff; border:1px solid #333;">
+      <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+      <option value="gu">ગુજરાતી</option><option value="ur">اردو</option><option value="bn">বাংলা</option>
+      <option value="ta">தமிழ்</option><option value="te">తెలుగు</option><option value="kn">ಕನ್ನಡ</option>
+    </select>
+    <button onclick="handleLogout()" style="background:none; border:none; color:var(--red); font-size:12px; margin-top:10px;">Logout</button>
+  </div>
+
+  <!-- MAIN DASHBOARD GRID -->
+  <div class="main-content" id="mainAppScreen">
+    
+    <!-- COL 1: Navigation -->
+    <div class="col">
+      <h3 style="color:var(--green)"><span>📍</span> Road-Accurate Routing</h3>
+      <button class="btn btn-nav" onclick="findHelpRoute('police')">Nearest Police (Live Road)</button>
+      <button class="btn btn-hosp" onclick="findHelpRoute('hospital')">Nearest Hospital (Live Road)</button>
+      <div id="routeMapContainer"></div>
+      <div id="routeInfo" class="status-tag"></div>
+    </div>
+
+    <!-- COL 2: AI Controls -->
+    <div class="col">
+      <h3 style="color:var(--purple)"><span>⚙️</span> Wearable & AI Control</h3>
+      <button class="btn" style="background:#059669" onclick="connectWearable()">Pair Bluetooth Wearable</button>
+      <button class="btn btn-ai" id="aiBtn" onclick="toggleThreatDetection()">AI Threat Detection: <b id="aiState">OFF</b></button>
+      <button class="btn btn-voice" id="voiceBtn" onclick="toggleVoiceSOS()">Voice SOS (Trigger: HELP): <b id="voiceState">OFF</b></button>
+      <div id="crowdLevelBox" class="status-tag">Crowd Level: Calculating...</div>
+    </div>
+
+    <!-- COL 3: Journey & Evidence -->
+    <div class="col">
+      <h3 style="color:var(--blue)"><span>🚶</span> Journey & Evidence</h3>
+      <button class="btn btn-journey" id="journeyBtn" onclick="toggleJourneyMode()">Journey Monitor: <b id="journeyState">OFF</b></button>
+      <button class="btn btn-evidence" onclick="toggleRecording()" id="recordBtn">Record Video Evidence</button>
+      <button class="btn btn-share" onclick="toggleLiveShare()">Live Track & QR Code</button>
+      <div id="liveTrackInfo" style="font-size:10px; color:var(--green); word-break:break-all; text-align:center; margin-top:5px;"></div>
+      <div id="qrBox" style="display:none; background:white; padding:10px; border-radius:8px; margin-top:10px; text-align:center;">
+        <div id="qrCanvas"></div>
+      </div>
+      <video id="evidencePreview" autoplay muted playsinline style="display:none; width:100%; border-radius:8px; margin-top:10px; background:#000;"></video>
+    </div>
+
+    <!-- COL 4: ICCC Dashboard -->
+    <div class="col">
+      <h3 style="color:var(--orange)"><span>📋</span> ICCC Incident Dashboard</h3>
+      <button class="btn btn-refresh" onclick="loadIncidents()">Refresh Dashboard</button>
+      <div id="incidentList" style="overflow-y:auto; max-height:400px;">
+        <div class="status-tag">No recent incidents.</div>
+      </div>
+    </div>
+
+    <!-- COL 5: Contacts -->
+    <div class="col">
+      <h3 style="color:var(--red)"><span>👥</span> Emergency Contacts</h3>
+      <input type="text" id="cName" placeholder="Name">
+      <input type="tel" id="cPhone" placeholder="91XXXXXXXXXX">
+      <button class="btn btn-add" onclick="addContact()">+ Add Contact</button>
+      <div id="contactList" style="margin-top:10px;"></div>
+    </div>
+
+  </div>
+
+  <!-- AUTH SCREEN (Overlay) -->
+  <div id="authScreen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+    <h1 style="color:var(--red)">PocketGuardian AI</h1>
+    <div class="section" style="width:100%; max-width:350px;">
+      <input type="email" id="authEmail" placeholder="Email">
+      <input type="password" id="authPassword" placeholder="Password">
+      <button class="btn btn-ai" onclick="handleAuthSubmit()">Login / Sign Up</button>
+      <div id="authError" style="color:var(--red); font-size:12px; text-align:center;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FAKE CALL SCREEN -->
+<div id="fakeCallScreen" class="fake-call-screen">
+  <div style="text-align:center; margin-top:40px;">
+    <div style="width:110px; height:110px; border-radius:50%; background:#2a2a3a; margin: 0 auto; display:flex; align-items:center; justify-content:center; font-size:50px;">👤</div>
+    <div style="font-size:32px; font-weight:600; color:white; margin-top:20px;">Mom</div>
+    <div id="callStatusText" style="color:#999; font-size:18px;">Incoming call...</div>
+  </div>
+  <div style="display:flex; justify-content:space-around; width:100%; max-width:320px;">
+    <button class="call-action-btn" style="background:#ff3b30; transform:rotate(135deg)" onclick="endFakeCall()">📞</button>
+    <button class="call-action-btn" style="background:var(--green)" onclick="acceptFakeCall()">📞</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let routeLeafletMap = null;
+let currentLang = "en";
+
+// --- AUTHENTICATION ---
+async function handleAuthSubmit() {
+  const email = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) { // Try Sign up if login fails
+      const { error: signUpErr } = await supabaseClient.auth.signUp({ email, password });
+      if (signUpErr) throw signUpErr;
+      alert("Verification email sent!");
+    } else { onAuthSuccess(data.user); }
+  } catch (e) { document.getElementById("authError").textContent = e.message; }
+}
+function onAuthSuccess(user) { currentUser = user; document.getElementById("authScreen").style.display = "none"; loadContacts(); loadIncidents(); updateCrowdLevel(); }
+
+// --- SOS & SMS (3s Countdown + Vibrate) ---
+let sosTimer;
+function startSOSCountdown() {
+  let count = 3; const btn = document.getElementById("sosBtn");
+  btn.textContent = count; if (navigator.vibrate) navigator.vibrate(200);
+  document.getElementById("cancelSosBtn").style.display = "block";
+  sosTimer = setInterval(() => {
+    count--; if (count <= 0) { clearInterval(sosTimer); btn.textContent = "SOS"; executeSOS(); }
+    else { btn.textContent = count; if (navigator.vibrate) navigator.vibrate(100); }
+  }, 1000);
+}
+function cancelSOSCountdown() { clearInterval(sosTimer); document.getElementById("sosBtn").textContent = "SOS"; document.getElementById("cancelSosBtn").style.display="none"; }
+
+async function executeSOS() {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude, longitude } = pos.coords;
+    const { data: contacts } = await supabaseClient.from("contacts").select("phone");
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const phones = contacts.map(c => c.phone).join(isIOS ? ";" : ",");
+    const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+    
+    await supabaseClient.from("sos_logs").insert([{latitude, longitude, user_id: currentUser.id}]);
+    window.location.href = `sms:${phones}${isIOS ? '&' : '?'}body=EMERGENCY! I need help. My location: ${mapsLink}`;
+  });
+}
+
+// --- SHAKE TRIGGER (6x) ---
+let shakeCount = 0; let lastShake = 0;
+window.addEventListener('devicemotion', (e) => {
+  const force = Math.abs(e.accelerationIncludingGravity.x) + Math.abs(e.accelerationIncludingGravity.y);
+  if (force > 30) {
+    const now = Date.now();
+    if (now - lastShake > 300) {
+      shakeCount++; lastShake = now;
+      if (shakeCount >= 6) { shakeCount = 0; startSOSCountdown(); }
+    }
+  }
+});
+
+// --- ROAD-ACCURATE ROUTING (OSRM) ---
+async function findHelpRoute(type) {
+  const info = document.getElementById("routeInfo"); const mapDiv = document.getElementById("routeMapContainer");
+  info.textContent = "Finding roads...";
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+    const res = await fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${uLat},${uLng})[amenity~"${type}"];out;`);
+    const data = await res.json();
+    if (data.elements.length > 0) {
+      const dest = data.elements[0];
+      mapDiv.style.display = "block"; if (routeLeafletMap) routeLeafletMap.remove();
+      routeLeafletMap = L.map(mapDiv).setView([uLat, uLng], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(routeLeafletMap);
+      
+      const osrm = await fetch(`https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`);
+      const route = await osrm.json();
+      if (route.routes.length > 0) {
+        L.polyline(route.routes[0].geometry.coordinates.map(c => [c[1], c[0]]), {color: 'red', weight: 6}).addTo(routeLeafletMap);
+        L.polyline(route.routes[0].geometry.coordinates.map(c => [c[1]+0.002, c[0]+0.002]), {color: 'blue', weight: 4, dashArray: '5,10'}).addTo(routeLeafletMap);
+        L.marker([uLat, uLng]).addTo(routeLeafletMap); L.marker([dest.lat, dest.lon]).addTo(routeLeafletMap).bindPopup(dest.tags.name).openPopup();
+        info.innerHTML = `Safe route found: ${dest.tags.name}`;
+      }
+    }
+  });
+}
+
+// --- AI THREAT & VOICE ---
+let voiceRec;
+function toggleVoiceSOS() {
+  const state = document.getElementById("voiceState");
+  if (state.textContent === "OFF") {
+    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+    voiceRec = new Speech(); voiceRec.continuous = true;
+    voiceRec.onresult = (e) => { if(e.results[e.results.length-1][0].transcript.toLowerCase().includes("help")) startSOSCountdown(); };
+    voiceRec.start(); state.textContent = "ON"; document.getElementById("voiceBtn").style.background = var(--green);
+  } else { voiceRec.stop(); state.textContent = "OFF"; document.getElementById("voiceBtn").style.background = "#ec4899"; }
+}
+
+function toggleThreatDetection() {
+  const s = document.getElementById("aiState");
+  s.textContent = s.textContent === "OFF" ? "ON" : "OFF";
+  document.getElementById("aiBtn").style.background = s.textContent === "ON" ? var(--green) : var(--red);
+}
+
+// --- CROWD LEVEL ---
+function updateCrowdLevel() {
+  const hr = new Date().getHours();
+  const box = document.getElementById("crowdLevelBox");
+  if (hr >= 8 && hr <= 10 || hr >= 17 && hr <= 20) box.innerHTML = "🔴 Crowd Level: <b>High</b> (Rush Hour)";
+  else if (hr > 22 || hr < 5) box.innerHTML = "🌙 Crowd Level: <b>Low</b> (Isolated Risk)";
+  else box.innerHTML = "🟡 Crowd Level: <b>Moderate</b>";
+}
+
+// --- INCIDENTS DASHBOARD ---
+async function loadIncidents() {
+  const list = document.getElementById("incidentList");
+  const { data } = await supabaseClient.from("sos_logs").select("*").eq("user_id", currentUser.id).order('created_at', {ascending:false});
+  list.innerHTML = data.map(l => `
+    <div style="background:#000; padding:10px; border-radius:8px; margin-bottom:8px; border-left:3px solid var(--red)">
+      <div style="display:flex; justify-content:space-between; font-size:11px;">
+        <span>${new Date(l.created_at).toLocaleTimeString()}</span>
+        <span class="badge badge-pending">PENDING</span>
+      </div>
+      <a href="https://maps.google.com/?q=${l.latitude},${l.longitude}" target="_blank" style="color:var(--blue); font-size:10px; text-decoration:none;">View Map →</a>
+    </div>
+  `).join("");
+}
+
+// --- RECORDING & GALLERY SAVE ---
+let recorder; let chunks = [];
+async function toggleRecording() {
+  const btn = document.getElementById("recordBtn"); const vid = document.getElementById("evidencePreview");
+  if (btn.dataset.active === "true") {
+    recorder.stop(); btn.dataset.active = "false"; btn.textContent = "Record Video Evidence"; vid.style.display="none"; return;
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+  vid.srcObject = stream; vid.style.display = "block";
+  recorder = new MediaRecorder(stream); chunks = [];
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, {type:'video/webm'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `Evidence_${Date.now()}.webm`; a.click();
+    stream.getTracks().forEach(t => t.stop());
+  };
+  recorder.start(); btn.dataset.active = "true"; btn.textContent = "Stop & Save to Gallery";
+}
+
+// --- QR CODE ---
+function toggleLiveShare() {
+  const box = document.getElementById("qrBox");
+  if (box.style.display === "block") { box.style.display = "none"; return; }
+  const link = `${window.location.origin}/?track=${Math.random().toString(36).substr(2, 9)}`;
+  document.getElementById("qrCanvas").innerHTML = "";
+  new QRCode(document.getElementById("qrCanvas"), { text: link, width: 140, height: 140 });
+  document.getElementById("liveTrackInfo").textContent = link;
+  box.style.display = "block";
+}
+
+// --- CONTACTS ---
+async function loadContacts() {
+  const { data } = await supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id);
+  const list = document.getElementById("contactList");
+  list.innerHTML = data.map(c => `<div class="contact-item"><span>${c.name}</span><button class="del-btn" onclick="delC('${c.id}')">✕</button></div>`).join("");
+}
+async function addContact() {
+  const n = document.getElementById("cName").value, p = document.getElementById("cPhone").value;
+  await supabaseClient.from("contacts").insert([{name: n, phone: p, user_id: currentUser.id}]);
+  document.getElementById("cName").value = ""; document.getElementById("cPhone").value = ""; loadContacts();
+}
+async function delC(id) { await supabaseClient.from("contacts").delete().eq("id", id); loadContacts(); }
+
+// --- FAKE CALL ---
+function fakeCall() { document.getElementById("fakeCallScreen").style.display = "flex"; }
+function endFakeCall() { document.getElementById("fakeCallScreen").style.display = "none"; }
+function acceptFakeCall() { document.getElementById("callStatusText").textContent = "00:01"; }
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+function toggleJourneyMode() { 
+  const s = document.getElementById("journeyState"); 
+  s.textContent = s.textContent === "OFF" ? "ON" : "OFF";
+  document.getElementById("journeyBtn").style.background = s.textContent === "ON" ? var(--green) : "#0ea5e9";
+}
+
+window.onload = () => {
+  supabaseClient.auth.getSession().then(({data}) => { if (data.session) onAuthSuccess(data.session.user); });
+};
+</script>
+</body>
+</html>
