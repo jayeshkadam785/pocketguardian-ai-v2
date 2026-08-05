@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketGuardian AI Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --bg: #0a0a0f; --panel: #16161f; --red: #ff3b5c; --green: #34c759; --blue: #3b82f6; --orange: #f59e0b; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: #f1f1f1; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+  
+  /* Auth & Reset Screen */
+  #authScreen, #resetScreen { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .auth-box { background: var(--panel); padding: 30px; border-radius: 15px; width: 90%; max-width: 380px; border: 1px solid #333; }
+
+  /* Dashboard Layout */
+  #mainDashboard { display: none; grid-template-columns: 200px 1fr; min-height: 100vh; }
+  .sidebar { background: #000; padding: 20px; border-right: 1px solid #222; display: flex; flex-direction: column; align-items: center; }
+  .main-grid { padding: 20px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; }
+
+  .sos-btn { width: 130px; height: 140px; border-radius: 50%; background: radial-gradient(circle, #ff3b5c, #b8002e); border: none; color: white; font-size: 30px; font-weight: bold; box-shadow: 0 0 30px rgba(255,59,92,0.6); cursor: pointer; }
+  .col { background: var(--panel); border-radius: 12px; padding: 15px; border: 1px solid #222; }
+  .col h3 { font-size: 13px; color: var(--red); margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 12px; }
+  input { width: 100%; padding: 12px; background: #000; border: 1px solid #333; border-radius: 8px; color: white; margin-bottom: 10px; }
+  
+  #routeMap { height: 180px; width: 100%; border-radius: 8px; margin-top: 10px; display: none; }
+  .fake-call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(180deg, #1a2a3a, #0a0a0f 60%); z-index: 99999; flex-direction: column; justify-content: space-between; align-items: center; padding: 60px 20px 50px; }
+
+  @media (max-width: 1200px) { .main-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .main-grid { grid-template-columns: 1fr; } #mainDashboard { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="authScreen">
+  <div class="auth-box">
+    <h1 style="color:var(--red); text-align:center; margin-bottom:20px;">PocketGuardian AI</h1>
+    <input type="email" id="authEmail" placeholder="Email Address">
+    <input type="password" id="authPassword" placeholder="Password">
+    <button class="btn" style="background:var(--red);" onclick="handleAuthSubmit()" id="loginBtn">Login / Sign Up</button>
+    <div style="text-align:center; margin-top:10px;">
+        <a href="#" onclick="handleForgotPassword()" style="color:#999; font-size:12px; text-decoration:none;">Forgot Password?</a>
+    </div>
+    <div id="authError" style="color:var(--red); font-size:12px; margin-top:10px; text-align:center;"></div>
+  </div>
+</div>
+
+<!-- PASSWORD RESET SCREEN (Hidden by default) -->
+<div id="resetScreen" style="display:none;">
+    <div class="auth-box">
+      <h2 style="color:var(--orange); text-align:center; margin-bottom:20px;">Update Password</h2>
+      <p style="font-size:11px; color:#999; margin-bottom:10px;">Enter your new password below:</p>
+      <input type="password" id="newPassword" placeholder="New Password (min 6 chars)">
+      <button class="btn" style="background:var(--green);" onclick="handleUpdatePassword()">Update & Login</button>
+      <div id="resetError" style="color:var(--red); font-size:12px; margin-top:10px; text-align:center;"></div>
+    </div>
+</div>
+
+<!-- MAIN DASHBOARD -->
+<div id="mainDashboard">
+  <div class="sidebar">
+    <h2 style="color:var(--red); margin-bottom:30px;">PG AI</h2>
+    <button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+    <div id="status" style="margin-top:20px; font-size:12px; color:var(--green);">System Ready</div>
+    
+    <select id="langSelector" onchange="setLanguage(this.value)" style="margin-top:auto; width:100%; padding:8px; background:#111; color:white; border:1px solid #333;">
+      <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+      <option value="gu">ગુજરાતી</option><option value="ur">اردو</option><option value="bn">বাংলা</option>
+      <option value="ta">தமிழ்</option><option value="te">తెలుగు</option><option value="kn">ಕನ್ನಡ</option>
+    </select>
+    <button onclick="handleLogout()" style="background:none; border:none; color:#666; font-size:12px; margin-top:15px; cursor:pointer;">Logout</button>
+  </div>
+
+  <div class="main-grid">
+    <div class="col">
+      <h3 id="txt-nav-h">📍 ROAD ROUTING</h3>
+      <button class="btn" style="background:var(--green);" onclick="findSafeRoute('police')">Nearest Police Station</button>
+      <button class="btn" style="background:#0891b2;" onclick="findSafeRoute('hospital')">Nearest Hospital</button>
+      <div id="routeMap"></div>
+      <div id="routeInfo" style="font-size:11px; color:var(--blue); margin-top:10px;"></div>
+    </div>
+
+    <div class="col">
+      <h3 id="txt-ai-h">⚙️ AI & WEARABLE</h3>
+      <button class="btn" style="background:#059669;" onclick="connectBT()">Pair Smart Wearable</button>
+      <button class="btn" style="background:var(--red);" id="aiBtn" onclick="toggleAI()">AI Threat Detection: OFF</button>
+      <button class="btn" style="background:#ec4899;" id="voiceBtn" onclick="toggleVoice()">Voice Trigger: OFF</button>
+      <div id="crowdLevel" style="font-size:11px; text-align:center; margin-top:10px;">Crowd: Calculating...</div>
+    </div>
+
+    <div class="col">
+      <h3 id="txt-journey-h">🚶 JOURNEY & EVIDENCE</h3>
+      <button class="btn" style="background:#0ea5e9;" id="jBtn" onclick="toggleJourney()">Journey Monitoring: OFF</button>
+      <button class="btn" style="background:var(--orange);" onclick="recordEvidence()">Record Video Evidence</button>
+      <button class="btn" style="background:var(--blue);" onclick="genQR()">Live Track & QR Code</button>
+      <div id="qrBox" style="display:none; background:white; padding:5px; margin-top:10px; text-align:center;"><div id="qrCanvas"></div></div>
+      <video id="vidPrev" autoplay muted style="display:none; width:100%; border-radius:8px; margin-top:10px;"></video>
+    </div>
+
+    <div class="col">
+      <h3 id="txt-dash-h">📋 INCIDENT LOGS</h3>
+      <button class="btn" style="background:#333; padding:5px;" onclick="loadLogs()">Refresh Dashboard</button>
+      <div id="logContainer" style="max-height: 400px; overflow-y:auto; font-size:11px;"></div>
+    </div>
+
+    <div class="col">
+      <h3 id="txt-contacts-h">👥 CONTACTS</h3>
+      <input type="text" id="cn" placeholder="Name">
+      <input type="tel" id="cp" placeholder="Phone Number">
+      <button class="btn" style="background:var(--red);" onclick="saveC()">+ Add Contact</button>
+      <div id="cList" style="margin-top:15px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FAKE CALL -->
+<div id="fakeCallScreen" class="fake-call-screen">
+  <div style="text-align:center; margin-top:40px;">
+    <div style="width:110px; height:110px; border-radius:50%; background:#2a2a3a; margin: 0 auto; display:flex; align-items:center; justify-content:center; font-size:50px;">👤</div>
+    <h2 style="margin-top:20px; font-size:35px;">Mom</h2>
+    <p style="color:#999;">Incoming call...</p>
+  </div>
+  <div style="display:flex; justify-content:space-around; width:100%; max-width:320px;">
+    <button class="sos-btn" style="width:70px; height:70px; background:#ff3b30; transform:rotate(135deg);" onclick="endCall()">📞</button>
+    <button class="sos-btn" style="width:70px; height:70px; background:var(--green);" onclick="ansCall()">📞</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let mapObj = null;
+
+// --- AUTH & FORGOT PASSWORD LOGIC ---
+async function handleAuthSubmit() {
+  const email = document.getElementById("authEmail").value;
+  const password = document.getElementById("authPassword").value;
+  const err = document.getElementById("authError");
+  if(!email || !password) return;
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      const { error: sErr } = await supabaseClient.auth.signUp({ email, password });
+      if (sErr) throw sErr;
+      err.style.color = "var(--green)"; err.textContent = "Check email to verify!";
+    } else { loginSuccess(data.user); }
+  } catch (e) { err.textContent = e.message; }
+}
+
+async function handleForgotPassword() {
+    const email = document.getElementById("authEmail").value;
+    const err = document.getElementById("authError");
+    if(!email) { err.textContent = "Enter your email above first!"; return; }
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+    });
+    if(error) err.textContent = error.message;
+    else { err.style.color = "var(--green)"; err.textContent = "Password reset link sent to email!"; }
+}
+
+async function handleUpdatePassword() {
+    const newPass = document.getElementById("newPassword").value;
+    const resErr = document.getElementById("resetError");
+    if(newPass.length < 6) { resErr.textContent = "Min 6 characters!"; return; }
+    const { error } = await supabaseClient.auth.updateUser({ password: newPass });
+    if(error) resErr.textContent = error.message;
+    else { alert("Password updated successfully!"); location.reload(); }
+}
+
+function loginSuccess(user) {
+  currentUser = user;
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("resetScreen").style.display = "none";
+  document.getElementById("mainDashboard").style.display = "grid";
+  loadC(); loadLogs();
+}
+
+// --- SOS ENGINE ---
+function startSOSCountdown() {
+  let c = 3; const b = document.getElementById("sosBtn");
+  const timer = setInterval(() => {
+    b.textContent = c; c--;
+    if(c < 0) { clearInterval(timer); b.textContent = "SOS"; sendSOS(); }
+  }, 1000);
+}
+
+async function sendSOS() {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude, longitude } = pos.coords;
+    const { data: contacts } = await supabaseClient.from("contacts").select("phone");
+    const phones = contacts.map(c => c.phone).join(",");
+    const msg = encodeURIComponent(`SOS! My location: https://maps.google.com/?q=${latitude},${longitude}`);
+    await supabaseClient.from("sos_logs").insert([{latitude, longitude, user_id: currentUser.id}]);
+    window.location.href = `sms:${phones}?body=${msg}`;
+  });
+}
+
+// --- ROAD ROUTING ---
+async function findSafeRoute(type) {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+    const res = await fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${uLat},${uLng})[amenity~"${type}"];out;`);
+    const data = await res.json();
+    if (data.elements.length > 0) {
+      const dest = data.elements[0];
+      document.getElementById("routeMap").style.display = "block";
+      if (mapObj) mapObj.remove();
+      mapObj = L.map('routeMap').setView([uLat, uLng], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapObj);
+      const osrm = await fetch(`https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`);
+      const rData = await osrm.json();
+      if(rData.routes.length > 0) {
+        L.polyline(rData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]), {color: 'red', weight: 5}).addTo(mapObj);
+        L.marker([dest.lat, dest.lon]).addTo(mapObj).bindPopup(dest.tags.name).openPopup();
+        document.getElementById("routeInfo").textContent = "Safe path to: " + dest.tags.name;
+      }
+    }
+  });
+}
+
+// --- FAKE CALL ---
+function fakeCall() { document.getElementById("fakeCallScreen").style.display = "flex"; }
+function endCall() { document.getElementById("fakeCallScreen").style.display = "none"; }
+function ansCall() { document.getElementById("callStatus").textContent = "00:05"; }
+
+// --- RECOVERY HANDLER ---
+window.onload = () => {
+  // Check if returning from password reset email
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === "PASSWORD_RECOVERY") {
+        document.getElementById("authScreen").style.display = "none";
+        document.getElementById("resetScreen").style.display = "flex";
+    } else if (session) {
+        loginSuccess(session.user);
+    }
+  });
+};
+
+// --- MISC UTILS ---
+function toggleAI() { const b = document.getElementById("aiBtn"); b.textContent = b.textContent.includes("OFF") ? "AI Threat Detection: ON" : "AI Threat Detection: OFF"; b.style.background = b.textContent.includes("ON") ? "var(--green)" : "var(--red)"; }
+function toggleVoice() { const b = document.getElementById("voiceBtn"); b.textContent = b.textContent.includes("OFF") ? "Voice Trigger: ON" : "Voice Trigger: OFF"; b.style.background = b.textContent.includes("ON") ? "var(--green)" : "#ec4899"; }
+function toggleJourney() { const b = document.getElementById("jBtn"); b.textContent = b.textContent.includes("OFF") ? "Journey Monitor: ON" : "Journey Monitor: OFF"; b.style.background = b.textContent.includes("ON") ? "var(--green)" : "#0ea5e9"; }
+function genQR() { const link = `${window.location.origin}/?track=${Math.random().toString(36).substr(2, 9)}`; document.getElementById("qrCanvas").innerHTML = ""; new QRCode(document.getElementById("qrCanvas"), { text: link, width: 100, height: 100 }); document.getElementById("qrBox").style.display = "block"; }
+async function loadLogs() { const { data } = await supabaseClient.from("sos_logs").select("*").eq("user_id", currentUser.id).order('created_at',{ascending:false}); document.getElementById("logContainer").innerHTML = data.map(l => `<div style="background:#000; padding:5px; border-radius:5px; margin-bottom:5px; border-left:2px solid var(--orange)">SOS: ${new Date(l.created_at).toLocaleTimeString()}</div>`).join(""); }
+async function loadC() { const { data } = await supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id); document.getElementById("cList").innerHTML = data.map(c => `<div style="background:#000; padding:8px; border-radius:5px; margin-bottom:5px; display:flex; justify-content:space-between;"><span>${c.name}</span><button onclick="delC('${c.id}')" style="background:none; border:none; color:var(--red);">✕</button></div>`).join(""); }
+async function saveC() { const n = document.getElementById("cn").value, p = document.getElementById("cp").value; await supabaseClient.from("contacts").insert([{name:n, phone:p, user_id:currentUser.id}]); loadC(); }
+async function delC(id) { await supabaseClient.from("contacts").delete().eq("id", id); loadC(); }
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+function setLanguage(l) { alert("Language changed to " + l); }
+</script>
+</body>
+</html>
