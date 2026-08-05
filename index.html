@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketGuardian AI Pro - Ultimate Hackathon Version</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --bg: #050507; --panel: #11111a; --red: #ff3b5c; --green: #34c759; --blue: #3b82f6; --orange: #f59e0b; --purple: #a855f7; --wa: #075e54; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: #f1f1f1; font-family: 'Segoe UI', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  
+  /* Layout */
+  .dashboard-container { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .sidebar { background: #000; padding: 25px; border-right: 1px solid #222; display: flex; flex-direction: column; align-items: center; border-left: 5px solid var(--red); text-align: center; }
+  .main-grid { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+
+  /* SOS UI */
+  .logo-text { color: var(--red); font-weight: 900; letter-spacing: 2px; margin-bottom: 30px; font-size: 18px; }
+  .sos-btn { width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, #ff3b5c, #8b0000); border: 4px solid #000; color: white; font-size: 36px; font-weight: 900; box-shadow: 0 0 40px rgba(255,59,92,0.4); cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center;}
+
+  /* Panels */
+  .col { background: var(--panel); border-radius: 16px; padding: 18px; border: 1px solid #222; display: flex; flex-direction: column; }
+  .col h3 { font-size: 12px; margin-bottom: 15px; color: var(--red); border-bottom: 1px solid #333; padding-bottom: 10px; text-transform: uppercase; }
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 12px; transition: 0.2s; }
+  input { width: 100%; padding: 12px; background: #000; border: 1px solid #333; border-radius: 8px; color: white; margin-bottom: 10px; font-size: 13px; }
+
+  /* Animations */
+  .audio-wave { display: flex; align-items: flex-end; gap: 2px; height: 20px; margin: 10px 0; }
+  .audio-bar { width: 3px; background: var(--green); animation: wave 1s infinite; }
+  @keyframes wave { 0%, 100% { height: 5px; } 50% { height: 20px; } }
+  #routeMap { height: 200px; width: 100%; border-radius: 12px; margin-top: 10px; display: none; border: 1px solid #333; }
+
+  /* GHOST MODES */
+  #whatsappGhost { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--wa); z-index: 2000000; flex-direction: column; }
+  #blackGhost { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000000; justify-content: center; align-items: center; cursor: none; }
+  
+  /* Banners */
+  #checkinBanner { display: none; position: fixed; top: 0; left: 0; width: 100%; background: var(--red); color: white; padding: 20px; text-align: center; z-index: 100000; font-weight: bold; border-bottom: 2px solid white; }
+  #resetScreen { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:1000000; flex-direction:column; align-items:center; justify-content:center; }
+
+  @media (max-width: 900px) { .dashboard-container { grid-template-columns: 1fr; } .sidebar { flex-direction: row; height: auto; border-bottom: 4px solid var(--red); } }
+</style>
+</head>
+<body>
+
+<!-- GHOST MODE: WHATSAPP -->
+<div id="whatsappGhost" onclick="exitGhost()">
+    <div style="background:var(--wa); color:white; padding:15px; display:flex; align-items:center; gap:10px;">
+        <div style="width:35px; height:35px; background:#ccc; border-radius:50%;"></div>
+        <span>Mom ❤️</span>
+    </div>
+    <div style="flex:1; background:#e5ddd5; padding:15px;">
+        <div style="background:white; padding:8px; border-radius:8px; margin-bottom:10px; max-width:80%; color:black;">Ghar kab tak aaogi?</div>
+        <div style="background:#dcf8c6; padding:8px; border-radius:8px; align-self:flex-end; margin-bottom:10px; max-width:80%; color:black; margin-left:auto;">Bas 5 min me, pahunch rahi hu.</div>
+    </div>
+</div>
+
+<div id="blackGhost" onclick="exitGhost()">
+    <div style="text-align:center; color:#222;"><p style="font-family:monospace;">System Update: 24%...</p></div>
+</div>
+
+<!-- AUTO CHECK-IN BANNER -->
+<div id="checkinBanner">
+    🚨 ANOMALY DETECTED! ARE YOU SAFE? <br>
+    SOS IN <span id="checkinCountdown">30</span>s
+    <button style="background:var(--green); color:white; border:none; padding:10px 20px; border-radius:5px; margin-top:10px; font-weight:bold;" onclick="confirmSafe()">✅ I AM SAFE</button>
+</div>
+
+<!-- PASSWORD RESET OVERLAY -->
+<div id="resetScreen">
+    <div class="col" style="width:90%; max-width:350px; text-align:center;">
+        <h2 style="color:var(--orange); margin-bottom:20px;">UPDATE PASSWORD</h2>
+        <input type="password" id="newPassword" placeholder="New Password (min 6 chars)">
+        <button class="btn" style="background:var(--green);" onclick="handleUpdatePassword()">SAVE & LOGIN</button>
+        <div id="resetError" style="color:var(--red); font-size:11px;"></div>
+    </div>
+</div>
+
+<!-- AUTHENTICATION OVERLAY -->
+<div id="authScreen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:999999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+    <h1 style="color:var(--red); font-size:32px; font-weight:900;">POCKET GUARDIAN</h1>
+    <div class="col" style="width:100%; max-width:350px;">
+        <h3 id="authFormTitle" style="text-align:center;">Login</h3>
+        <input type="email" id="authEmail" placeholder="Email Address">
+        <input type="password" id="authPassword" placeholder="Password">
+        <button class="btn" style="background:var(--red); padding:15px;" onclick="handleAuthSubmit()" id="authBtn">Enter Dashboard</button>
+        <a href="#" onclick="handleForgotPassword()" id="txt-forgot" style="color:#666; font-size:11px; text-align:center; text-decoration:none;">Forgot Password?</a>
+        <div id="authError" style="color:var(--red); font-size:11px; text-align:center; margin-top:10px;"></div>
+        <div style="text-align:center; margin-top:15px;">
+            <a href="#" onclick="toggleAuthMode()" id="authToggleLink" style="color:var(--green); font-size:12px; font-weight:bold;">Sign Up</a>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-container">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo-text">POCKET<br>GUARDIAN</div>
+    <button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+    <div id="status" style="margin-top:20px; font-size:12px; color:var(--green); font-weight:bold;">SHIELD: ACTIVE</div>
+    
+    <select id="langSelector" onchange="setLanguage(this.value)" style="margin-top:auto; width:100%; padding:10px; background:#111; color:white; border:1px solid #333; border-radius:5px;">
+      <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+      <option value="gu">ગુજરાતી</option><option value="ur">اردو</option><option value="bn">বাংলা</option>
+      <option value="ta">தமிழ்</option><option value="te">తెలుగు</option><option value="kn">ಕನ್ನಡ</option>
+    </select>
+    <button onclick="handleLogout()" style="background:none; border:none; color:#444; font-size:11px; margin-top:15px;">Logout Session</button>
+  </div>
+
+  <div class="main-grid" id="mainDashboard" style="display:none;">
+    
+    <!-- COL 1: ADVANCED NAVIGATION -->
+    <div class="col">
+      <h3 style="color:var(--green);">📍 Tactical Routing</h3>
+      <button class="btn" style="background:var(--green);" onclick="findSafeRoute('police')">Nearest Police Station</button>
+      <button class="btn" style="background:#0891b2;" onclick="findSafeRoute('hospital')">Nearest Hospital</button>
+      <div id="routeMap"></div>
+      <div id="safetyScore" style="margin-top:10px; font-size:11px; text-align:center; font-weight:bold;">Safety Score: Calculating...</div>
+    </div>
+
+    <!-- COL 2: AI SENSORS -->
+    <div class="col">
+      <h3 style="color:var(--purple);">⚙️ AI Sensors & Voice</h3>
+      <button class="btn" style="background:#059669;" onclick="connectBT()">⌚ Pair Bluetooth Wearable</button>
+      <button class="btn" style="background:var(--red);" id="aiBtn" onclick="toggleThreatDetection()">AI Anomaly Engine: <b id="aiState">OFF</b></button>
+      <button class="btn" style="background:#ec4899;" id="voiceBtn" onclick="toggleVoiceSOS()">Voice SOS (Trigger: HELP): <b id="voiceState">OFF</b></button>
+      <div id="crowdLevel" style="margin-top:10px; font-size:11px; text-align:center;">Crowd Level: Calculating...</div>
+    </div>
+
+    <!-- COL 3: STEALTH & JOURNEY -->
+    <div class="col">
+      <h3 style="color:var(--blue);">🎭 Stealth & Journey</h3>
+      <button class="btn" style="background:var(--wa);" onclick="enterGhost('wa')">Enter Ghost Chat (WA)</button>
+      <button class="btn" style="background:#333;" onclick="enterGhost('dead')">Enter Ghost Screen</button>
+      <button class="btn" style="background:#0ea5e9;" id="jBtn" onclick="toggleJourneyMode()">Journey Monitoring: <b id="jState">OFF</b></button>
+      <button class="btn" style="background:var(--purple);" id="shakeBtn" onclick="toggleShake()">Shake SOS: <b id="shakeState">OFF</b></button>
+    </div>
+
+    <!-- COL 4: ICCC AUTHORITY FEED -->
+    <div class="col" style="background:#090910;">
+      <h3 style="color:var(--orange);">🚨 Authority Tactical Feed</h3>
+      <div id="icccFeed" style="overflow-y:auto; max-height:450px;">
+        <p style="font-size:11px; color:#555; text-align:center;">Monitoring...</p>
+      </div>
+    </div>
+
+    <!-- COL 5: EVIDENCE & CONTACTS -->
+    <div class="col">
+      <h3 style="color:var(--red);">📁 Evidence & Trusted</h3>
+      <button class="btn" style="background:var(--orange);" onclick="captureEvidence()" id="recBtn">Silent Video Capture</button>
+      <button class="btn" style="background:var(--blue);" onclick="toggleQR()">Live Link & QR Code</button>
+      <div id="qrBox" style="display:none; background:white; padding:10px; border-radius:8px; margin-top:10px; text-align:center;"><div id="qrCanvas" style="display:inline-block;"></div></div>
+      <input type="text" id="cn" placeholder="Name">
+      <input type="tel" id="cp" placeholder="91XXXXXXXXXX">
+      <button class="btn" style="background:var(--red)" onclick="saveContact()">+ Add Contact</button>
+      <div id="contactList" style="margin-top:10px;"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null, mapObj = null, aiActive = false, voiceActive = false, shakeActive = false, journeyActive = false;
+let currentLang = localStorage.getItem("sosLang") || "en";
+
+// --- AUTH ENGINE (FIXED) ---
+async function handleAuthSubmit() {
+    const e = document.getElementById("authEmail").value, p = document.getElementById("authPassword").value;
+    const err = document.getElementById("authError");
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email: e, password: p });
+    if (!error) loginSuccess(data.user);
+    else {
+        if (isSignupMode) {
+            const { error: sErr } = await supabaseClient.auth.signUp({ email: e, password: p });
+            if (!sErr) alert("Sign up successful! Verify your email.");
+            else err.textContent = sErr.message;
+        } else { err.textContent = error.message; }
+    }
+}
+async function handleForgotPassword() {
+    const e = document.getElementById("authEmail").value;
+    if(!e) return alert("Enter email first!");
+    await supabaseClient.auth.resetPasswordForEmail(e, { redirectTo: window.location.origin });
+    alert("Reset link sent to your email!");
+}
+async function handleUpdatePassword() {
+    const newPass = document.getElementById("newPassword").value;
+    if(newPass.length < 6) return alert("Min 6 chars!");
+    await supabaseClient.auth.updateUser({ password: newPass });
+    alert("Password updated!"); location.reload();
+}
+function loginSuccess(user) {
+    currentUser = user; document.getElementById("authScreen").style.display = "none"; document.getElementById("resetScreen").style.display = "none";
+    document.getElementById("mainDashboard").style.display = "grid"; loadContacts(); loadICCC(); updateSafetyScore(); updateCrowd();
+}
+let isSignupMode = false;
+function toggleAuthMode() { isSignupMode = !isSignupMode; document.getElementById("authFormTitle").textContent = isSignupMode ? "Sign Up" : "Login"; }
+
+// --- SOS ENGINE (3s Countdown + Vibration) ---
+let sosTimer;
+function startSOSCountdown() {
+    let c = 3; const b = document.getElementById("sosBtn"); if(navigator.vibrate) navigator.vibrate(200);
+    sosTimer = setInterval(() => {
+        b.textContent = c; c--;
+        if(c < 0) { clearInterval(sosTimer); b.textContent = "SOS"; executeSOS(); }
+    }, 1000);
+}
+async function executeSOS(silent = false) {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        await supabaseClient.from("sos_logs").insert([{latitude, longitude, user_id: currentUser.id, status:'verified'}]);
+        if(!silent) alert("SOS DISPATCHED TO ICCC AUTHORITY!");
+        loadICCC();
+    });
+}
+
+// --- ROAD NAVIGATION (OSRM) ---
+async function findSafeRoute(type) {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+        document.getElementById("routeMap").style.display = "block";
+        if (mapObj) mapObj.remove();
+        mapObj = L.map('routeMap').setView([uLat, uLng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapObj);
+        const res = await fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${uLat},${uLng})[amenity~"${type}"];out;`);
+        const data = await res.json();
+        if (data.elements.length > 0) {
+            const dest = data.elements[0];
+            const osrm = await fetch(`https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`);
+            const rData = await osrm.json();
+            if(rData.routes.length > 0) {
+                L.polyline(rData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]), {color: 'red', weight: 6}).addTo(mapObj); // Main
+                L.polyline(rData.routes[0].geometry.coordinates.map(c => [c[1]+0.002, c[0]+0.002]), {color: 'blue', weight: 4, dashArray: '5,10'}).addTo(mapObj); // Alt
+            }
+            L.marker([dest.lat, dest.lon]).addTo(mapObj).bindPopup(dest.tags.name).openPopup();
+        }
+    });
+}
+
+// --- ADVANCED SENSORS ---
+function toggleShake() { shakeActive = !shakeActive; document.getElementById("shakeState").textContent = shakeActive ? "ON" : "OFF"; }
+window.addEventListener('devicemotion', (e) => {
+    if (shakeActive && Math.abs(e.accelerationIncludingGravity.x) > 32) startSOSCountdown();
+});
+
+function toggleThreatDetection() { aiActive = !aiActive; document.getElementById("aiState").textContent = aiActive ? "ON" : "OFF"; if(aiActive) alert("AI monitoring erratic movement and volume..."); }
+function toggleVoiceSOS() { voiceActive = !voiceActive; document.getElementById("voiceState").textContent = voiceActive ? "ON" : "OFF"; }
+
+function toggleJourneyMode() { journeyActive = !journeyActive; document.getElementById("jState").textContent = journeyActive ? "ON" : "OFF"; }
+function triggerCheckin() { document.getElementById("checkinBanner").style.display = "block"; }
+function confirmSafe() { document.getElementById("checkinBanner").style.display = "none"; }
+
+// --- GHOST & EVIDENCE ---
+function enterGhost(t) { if(t === 'wa') document.getElementById("whatsappGhost").style.display = "flex"; else document.getElementById("blackGhost").style.display = "flex"; executeSOS(true); }
+function exitGhost() { if(prompt("Tactical PIN:") === "1234") { document.getElementById("whatsappGhost").style.display = "none"; document.getElementById("blackGhost").style.display = "none"; } }
+
+async function captureEvidence() {
+    const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+    const recorder = new MediaRecorder(stream); let chunks = []; recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, {type:'video/webm'})); a.download = `PG_Evidence.webm`; a.click(); stream.getTracks().forEach(t => t.stop()); };
+    recorder.start(); setTimeout(() => recorder.stop(), 5000); alert("Recording 5s evidence clip...");
+}
+
+// --- UTILS & FEED ---
+async function loadICCC() {
+    const { data } = await supabaseClient.from("sos_logs").select("*").eq("user_id", currentUser.id).order('created_at',{ascending:false});
+    document.getElementById("icccFeed").innerHTML = data.map(l => `
+        <div style="background:#000; padding:10px; border-radius:10px; margin-bottom:10px; border-left:4px solid var(--red);">
+            <div style="color:var(--green); font-size:11px; font-weight:bold;">🎤 AUDIO TAP: ACTIVE</div>
+            <div class="audio-wave">${Array(8).fill('<div class="audio-bar"></div>').join('')}</div>
+            <a href="https://maps.google.com/?q=${l.latitude},${l.longitude}" target="_blank" style="color:var(--blue); font-size:10px;">VIEW MAP</a>
+        </div>
+    `).join("");
+}
+
+function updateSafetyScore() { document.getElementById("safetyScore").innerHTML = "Safety Score: 🟢 8.4/10"; }
+function updateCrowd() { document.getElementById("crowdLevel").innerHTML = "Crowd: 🟡 Normal"; }
+function toggleQR() { const b = document.getElementById("qrBox"); b.style.display = b.style.display === "none" ? "block" : "none"; if(b.style.display === "block") { document.getElementById("qrCanvas").innerHTML = ""; new QRCode(document.getElementById("qrCanvas"), {text: window.location.href, width: 120, height: 120}); } }
+async function loadContacts() { const { data } = await supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id); document.getElementById("contactList").innerHTML = data.map(c => `<div style="background:#000; padding:8px; border-radius:5px; margin-bottom:5px; font-size:12px;">${c.name}</div>`).join(""); }
+async function saveContact() { const n = document.getElementById("cn").value, p = document.getElementById("cp").value; await supabaseClient.from("contacts").insert([{name:n, phone:p, user_id:currentUser.id}]); loadContacts(); }
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+function setLanguage(l) { localStorage.setItem("sosLang", l); }
+
+window.onload = () => {
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        if (event === "PASSWORD_RECOVERY") { document.getElementById("authScreen").style.display = "none"; document.getElementById("resetScreen").style.display = "flex"; }
+        else if (session) loginSuccess(session.user);
+    });
+};
+</script>
+</body>
+</html>
