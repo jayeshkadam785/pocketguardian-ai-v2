@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketGuardian AI</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#c0154a">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0f; color: #f1f1f1; font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden;
+  }
+  h1 { color: #ff3b5c; margin: 20px 0 5px; font-size: 28px; }
+  .subtitle { color: #999; font-size: 13px; margin-bottom: 25px; text-align: center; }
+  .sos-btn {
+    width: 170px; height: 170px; border-radius: 50%;
+    background: radial-gradient(circle, #ff3b5c, #b8002e);
+    border: none; color: white; font-size: 40px; font-weight: bold;
+    box-shadow: 0 0 30px rgba(255,59,92,0.6); cursor: pointer; transition: transform 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sos-btn:active { transform: scale(0.95); }
+  .status { margin-top: 15px; font-size: 14px; color: #4ade80; min-height: 20px; text-align: center; }
+  .section { width: 100%; max-width: 420px; background: #16161f; border-radius: 14px; padding: 18px; margin-top: 25px; }
+  .section h3 { font-size: 15px; color: #ff3b5c; margin-bottom: 12px; }
+  input { width: 100%; padding: 12px; margin-bottom: 8px; border-radius: 8px; border: 1px solid #333; background: #0a0a0f; color: white; font-size: 14px; }
+  .add-btn { width: 100%; padding: 12px; background: #ff3b5c; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 5px; }
+  .contact-item { display: flex; justify-content: space-between; align-items: center; background: #0a0a0f; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+  .del-btn { background: none; border: none; color: #ff3b5c; cursor: pointer; font-size: 16px; padding: 5px; }
+  .police-item { background: #0a0a0f; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .police-item a { color: #4ade80; text-decoration: none; font-weight: bold; }
+  .lang-selector { position: fixed; top: 14px; right: 14px; background: #16161f; color: white; border: 1px solid #333; border-radius: 8px; padding: 6px 8px; font-size: 13px; z-index: 10001; }
+  
+  /* Fake Call Screen */
+  .fake-call-screen { 
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: linear-gradient(180deg, #1a2a3a, #0a0a0f 60%); 
+    z-index: 99999; flex-direction: column; justify-content: space-between; align-items: center; padding: 60px 20px 50px; 
+  }
+  .caller-avatar { width: 110px; height: 110px; border-radius: 50%; background: #2a2a3a; display: flex; align-items: center; justify-content: center; font-size: 50px; margin-bottom: 20px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.15); } 70% { box-shadow: 0 0 0 25px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+  .call-action-btn { width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 26px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; }
+  .call-action-btn.decline { background: #ff3b30; transform: rotate(135deg); }
+  .call-action-btn.accept { background: #34c759; }
+
+  #mainAppScreen { display: none; flex-direction: column; align-items: center; width: 100%; }
+  #routeMapContainer { height: 320px; width: 100%; margin-top: 15px; border-radius: 12px; display: none; border: 1px solid #333; }
+  #checkinBanner { display: none; position: fixed; top: 0; left: 0; width: 100%; background: #b8002e; color: white; padding: 16px 20px; text-align: center; z-index: 100000; font-size: 15px; }
+  #checkinBanner button { margin-top: 10px; padding: 10px 22px; border-radius: 8px; border: none; font-weight: bold; background: #34c759; color: white; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="checkinBanner">
+  <div id="checkinText">Safety System: Are you okay? SOS triggers in <span id="checkinCountdown">30</span>s</div>
+  <button onclick="confirmSafeCheckin()" id="txt-imfine">✅ I'm Fine</button>
+</div>
+
+<!-- AUTHENTICATION -->
+<div id="authScreen" style="width:100%; max-width:420px; padding-top:60px; display:flex; flex-direction:column; align-items:center;">
+  <h1 id="txt-auth-title">PocketGuardian AI</h1>
+  <div class="subtitle" id="txt-auth-sub">Secure Login to Activate SOS</div>
+  <div class="section" style="width:100%;">
+    <h3 id="authFormTitle">Login</h3>
+    <input type="email" id="authEmail" placeholder="Email">
+    <input type="password" id="authPassword" placeholder="Password">
+    <button class="add-btn" onclick="handleAuthSubmit()" id="authSubmitBtn">Login</button>
+    <div id="authError" style="color:#ff6b6b; font-size:13px; margin-top:8px; text-align:center;"></div>
+    <div style="text-align:center; margin-top:14px; font-size:13px; color:#999;">
+      <a href="#" onclick="toggleAuthMode(); return false;" id="authToggleLink" style="color:#4ade80; font-weight:bold;">Sign Up</a>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APPLICATION -->
+<div id="mainAppScreen">
+<select class="lang-selector" id="langSelector" onchange="setLanguage(this.value)">
+  <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+  <option value="gu">ગુજરાતી</option><option value="ur">اردو</option><option value="bn">বাংলা</option>
+  <option value="ta">தமிழ்</option><option value="te">తెలుగు</option><option value="kn">ಕನ್ನಡ</option>
+</select>
+<button onclick="handleLogout()" id="txt-logout" style="position:fixed; top:14px; left:14px; background:#16161f; color:#ff6b6b; border:1px solid #333; border-radius:8px; padding:6px 12px; font-size:12px; z-index:10001;">Logout</button>
+
+<h1 id="txt-title">PocketGuardian AI</h1>
+<div class="subtitle" id="txt-subtitle">SOS Safety — One tap sends location to family</div>
+
+<button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+<div class="status" id="status"></div>
+<button id="cancelSosBtn" onclick="cancelSOSCountdown()" style="display:none; margin-top:10px; padding:10px 20px; background:#333; border:none; border-radius:8px; color:white; font-weight:bold; cursor:pointer;">Cancel</button>
+
+<button class="fake-call-btn" onclick="fakeCall()">📞 <span id="txt-fakecall">Emergency Call (Mom)</span></button>
+
+<div class="section">
+  <h3 id="txt-contacts-h">Emergency Contacts</h3>
+  <input type="text" id="contactName" placeholder="Name">
+  <input type="tel" id="contactPhone" placeholder="91XXXXXXXXXX">
+  <button class="add-btn" onclick="addContact()" id="txt-addbtn">+ Add Contact</button>
+  <div id="contactList" style="margin-top:12px;"></div>
+</div>
+
+<div class="section">
+  <h3 id="txt-nav-h">Safety Navigation</h3>
+  <button class="add-btn" style="background:#14b8a6; margin-bottom:10px;" onclick="findNearestSafeLocation('police')" id="txt-find-police">👮 Find Police Station</button>
+  <button class="add-btn" style="background:#0891b2;" onclick="findNearestSafeLocation('hospital')" id="txt-find-hospital">🏥 Find Hospital</button>
+  <div id="nearestSafeInfo" style="margin-top:8px; font-size:13px; color:#5eead4; text-align:center;"></div>
+  <div id="routeMapContainer"></div>
+</div>
+
+<div class="section">
+  <h3 id="txt-tools-h">Advanced AI Tools</h3>
+  <button class="add-btn" style="background:#34c759; margin-bottom:10px;" onclick="imSafe()" id="txt-imsafe">✅ I'm Safe</button>
+  <button class="add-btn" style="background:#3b82f6; margin-bottom:10px;" onclick="toggleLiveShare()" id="liveShareBtn">📍 Share Live Location</button>
+  <div id="qrCodeBox" style="display:none; background:white; padding:10px; border-radius:10px; margin: 0 auto 10px; width:180px;"><div id="qrCodeCanvas"></div></div>
+
+  <button class="add-btn" style="background:#ff9d4d; margin-bottom:10px;" onclick="toggleRecording()" id="recordBtn">🎥 Record Video Evidence</button>
+  <div id="recordingInfo" style="font-size:12px; color:#ff9d4d; text-align:center;"></div>
+  <video id="evidencePreview" autoplay muted playsinline style="display:none; width:100%; border-radius:10px; margin-top:10px; background:#000;"></video>
+
+  <button class="add-btn" style="background:#a855f7; margin-top:10px;" onclick="enableShakeToSOS()" id="shakeBtn">🤳 Enable Shake SOS</button>
+  <button class="add-btn" style="background:#ec4899; margin-top:10px;" onclick="toggleVoiceSOS()" id="voiceSosBtn">🎤 Enable Voice SOS</button>
+  <button class="add-btn" style="background:#dc2626; margin-top:10px;" onclick="toggleThreatDetection()" id="threatBtn">🛡️ AI Threat Detection</button>
+  <button class="add-btn" style="background:#0ea5e9; margin-top:10px;" onclick="toggleJourneyMode()" id="journeyBtn">🚶 Journey Route Monitor</button>
+  <div id="journeyStatusBox" style="display:none; padding:10px; font-size:12px; color:#0ea5e9;"></div>
+
+  <button class="add-btn" style="background:#f59e0b; margin-top:10px;" onclick="toggleIncidentDashboard()" id="txt-dashbtn">📋 Incident Dashboard</button>
+  <div id="incidentDashboard" style="display:none; margin-top:10px;"></div>
+</div>
+
+<div class="section">
+  <h3 id="txt-police-h">Satara & Pune Backup (Old Data)</h3>
+  <div id="policeList"></div>
+</div>
+
+<!-- FAKE CALL UI -->
+<div id="fakeCallScreen" class="fake-call-screen">
+  <div style="text-align:center; margin-top:40px;">
+    <div class="caller-avatar">👤</div>
+    <div style="font-size:32px; font-weight:600; color:white;">Mom</div>
+    <div id="callStatusText" style="color:#999; font-size:18px;">Incoming call...</div>
+  </div>
+  <div style="display:flex; justify-content:space-around; width:100%;">
+    <button class="call-action-btn decline" onclick="endFakeCall()">📞</button>
+    <button class="call-action-btn accept" onclick="acceptFakeCall()">📞</button>
+  </div>
+</div>
+</div>
+
+<script>
+// --- CONFIG & GLOBAL VARIABLES ---
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let routeLeafletMap = null;
+let currentLang = localStorage.getItem("sosLang") || "en";
+
+// --- FULL TRANSLATIONS OBJECT ---
+const translations = {
+  en: { 
+    authTitle:"PocketGuardian AI", authSub:"Secure Login to Activate SOS", authL:"Login", authS:"Sign Up", logout:"Logout",
+    title:"PocketGuardian AI", subtitle:"SOS Safety — Tap in emergency", fakecall:"Emergency Call (Mom)", contactsH:"Emergency Contacts", addbtn:"+ Add Contact", policeH:"Satara & Pune Backup", navH:"Safety Navigation", toolsH:"Advanced AI Tools", imsafe:"✅ I'm Safe", gettingLocation: "Getting location...", smsMsg: "EMERGENCY! Help me at:", namePh: "Name", phonePh: "91XXXXXXXXXX", dashbtn: "📋 Incident Dashboard", findP: "👮 Find Police Station", findH: "🏥 Find Hospital", imfine: "✅ I'm Fine", checkin: "Safety System: Are you okay? SOS in "
+  },
+  hi: { 
+    authTitle:"PocketGuardian AI", authSub:"SOS सक्रिय करने के लिए लॉगिन करें", authL:"लॉगिन", authS:"साइन अप", logout:"लॉगआउट",
+    title:"PocketGuardian AI", subtitle:"एसओएस सुरक्षा — आपातकाल में दबाएं", fakecall:"आपातकालीन कॉल (Mom)", contactsH:"आपातकालीन संपर्क", addbtn:"+ संपर्क जोड़ें", policeH:"पुराना डेटा (सातारा/पुणे)", navH:"सुरक्षा नेविगेशन", toolsH:"उन्नत उपकरण", imsafe:"✅ मैं सुरक्षित हूँ", gettingLocation: "स्थान प्राप्त कर रहे हैं...", smsMsg: "आपातकाल! मेरी मदद करें:", namePh: "नाम", phonePh: "फ़ोन नंबर", dashbtn: "📋 घटना डैशबोर्ड", findP: "👮 पुलिस स्टेशन खोजें", findH: "🏥 अस्पताल खोजें", imfine: "✅ मैं ठीक हूँ", checkin: "सुरक्षा प्रणाली: क्या आप ठीक हैं? SOS: "
+  },
+  mr: { 
+    authTitle:"PocketGuardian AI", authSub:"SOS सक्रिय करण्यासाठी लॉगिन करा", authL:"लॉगिन", authS:"साइन अप", logout:"लॉगआउट",
+    title:"PocketGuardian AI", subtitle:"एसओएस सुरक्षा — आणीबाणीत दाबा", fakecall:"आणीबाणी कॉल (Mom)", contactsH:"आणीबाणी संपर्क", addbtn:"+ संपर्क जोडा", policeH:"जुना डेटा (सातारा/पुणे)", navH:"सुरक्षा नेव्हिगेशन", toolsH:"प्रगत साधने", imsafe:"✅ मी सुरक्षित आहे", gettingLocation: "स्थान मिळवत आहे...", smsMsg: "आणीबाणी! मदत करा:", namePh: "नाव", phonePh: "फोन नंबर", dashbtn: "📋 घटना डॅशबोर्ड", findP: "👮 पोलीस स्टेशन शोधा", findH: "🏥 रुग्णालय शोधा", imfine: "✅ मी ठीक आहे", checkin: "सुरक्षा यंत्रणा: आपण ठीक आहात का? SOS: "
+  },
+  gu: { 
+    authTitle:"PocketGuardian AI", authSub:"SOS સક્રિય કરવા માટે લોગિન કરો", authL:"લોગિન", authS:"સાઇન અપ", logout:"લોગઆઉટ",
+    title:"PocketGuardian AI", subtitle:"SOS સુરક્ષા - કટોકટીમાં દબાવો", fakecall:"ઇમરજન્સી કોલ (Mom)", contactsH:"કટોકટી સંપર્કો", addbtn:"+ સંપર્ક ઉમેરો", policeH:"જુનો ડેટા (Satara/Pune)", navH:"સુરક્ષા નેવિગેશન", toolsH:"અદ્યતન સાધનો", imsafe:"✅ હું સુરક્ષિત છું", gettingLocation: "સ્થાન મળી રહ્યું છે...", smsMsg: "કટોકટી! મદદ કરો:", namePh: "નામ", phonePh: "ફોન નંબર", dashbtn: "📋 ઘટના ડેશબોર્ડ", findP: "👮 પોલીસ સ્ટેશન શોધો", findH: "🏥 હોસ્પિટલ શોધો", imfine: "✅ હું ઠીક છું", checkin: "સુરક્ષા વ્યવસ્થા: શું તમે ઠીક છો? SOS: "
+  },
+  ur: { 
+    authTitle:"PocketGuardian AI", authSub:"SOS کو فعال کرنے کے لیے لاگ ان کریں", authL:"لاگ ان", authS:"سائن اپ", logout:"لاگ آؤٹ",
+    title:"PocketGuardian AI", subtitle:"ایس او ایس حفاظت - ہنگامی حالت میں دبائیں", fakecall:"ہنگامی کال (Mom)", contactsH:"ہنگامی رابطے", addbtn:"+ رابطہ شامل کریں", policeH:"پرانا ڈیٹا (Satara/Pune)", navH:"حفاظتی نیویگیشن", toolsH:"جدید اوزار", imsafe:"✅ میں محفوظ ہوں", gettingLocation: "مقام حاصل کر رہے ہیں...", smsMsg: "ہنگامی صورتحال! مدد کریں:", namePh: "نام", phonePh: "فون نمبر", dashbtn: "📋 واقعہ ڈیش بورڈ", findP: "👮 تھانہ تلاش کریں", findH: "🏥 ہسپتال تلاش کریں", imfine: "✅ میں ٹھیک ہوں", checkin: "حفاظتی نظام: کیا آپ ٹھیک ہیں؟ SOS: "
+  },
+  bn: { 
+    authTitle:"PocketGuardian AI", authSub:"SOS সক্রিয় করতে লগইন করুন", authL:"লগইন", authS:"সাইন আপ", logout:"লগআউট",
+    title:"PocketGuardian AI", subtitle:"SOS সুরক্ষা - জরুরি অবস্থায় টিপুন", fakecall:"জরুরি কল (Mom)", contactsH:"জরুরি যোগাযোগ", addbtn:"+ যোগাযোগ যোগ করুন", policeH:"পুরানো তথ্য (Satara/Pune)", navH:"সুরক্ষা নেভিগেশন", toolsH:"উন্নত সরঞ্জাম", imsafe:"✅ আমি নিরাপদ", gettingLocation: "অবস্থান পাওয়া যাচ্ছে...", smsMsg: "জরুরি অবস্থা! সাহায্য করুন:", namePh: "নাম", phonePh: "ফোন নম্বর", dashbtn: "📋 ঘটনা ড্যাশবোর্ড", findP: "👮 থানা খুঁজুন", findH: "🏥 হাসপাতাল খুঁজুন", imfine: "✅ আমি ঠিক আছি", checkin: "সুরক্ষা ব্যবস্থা: আপনি কি ঠিক আছেন? SOS: "
+  },
+  ta: { 
+    authTitle:"PocketGuardian AI", authSub:"SOS ஐச் செயல்படுத்த உள்நுழையவும்", authL:"உள்நுழைவு", authS:"பதிவு செய்க", logout:"வெளியேறு",
+    title:"PocketGuardian AI", subtitle:"SOS பாதுகாப்பு - அவசர காலத்தில் அழுத்தவும்", fakecall:"அவசர அழைப்பு (Mom)", contactsH:"அவசர தொடர்புகள்", addbtn:"+ தொடர்பு சேர்க்க", policeH:"பழைய தரவு (Satara/Pune)", navH:"பாதுகாப்பு வழிசெலுத்தல்", toolsH:"மேம்பட்ட கருவிகள்", imsafe:"✅ நான் பாதுகாப்பாக உள்ளேன்", gettingLocation: "இருப்பிடத்தைப் பெறுகிறது...", smsMsg: "அவசரம்! எனக்கு உதவுங்கள்:", namePh: "பெயர்", phonePh: "தொலைபேசி எண்", dashbtn: "📋 சம்பவ டாஷ்போர்டு", findP: "👮 காவல் நிலையத்தைக் கண்டறியவும்", findH: "🏥 மருத்துவமனையைக் கண்டறியவும்", imfine: "✅ நான் நலமாக இருக்கிறேன்", checkin: "பாதுகாப்பு அமைப்பு: நீங்கள் நலமா? SOS: "
+  },
+  te: { 
+    authTitle:"PocketGuardian AI", authSub:"SOSని యాక్టివేట్ చేయడానికి లాగిన్ చేయండి", authL:"లాగిన్", authS:"సైన్ అప్", logout:"లాగ్ అవుట్",
+    title:"PocketGuardian AI", subtitle:"SOS భద్రత - అత్యవసర స్థితిలో నొక్కండి", fakecall:"అత్యవసర కాల్ (Mom)", contactsH:"అత్యవసర పరిచయాలు", addbtn:"+ పరిచయాన్ని జోడించు", policeH:"పాత డేటా (Satara/Pune)", navH:"భద్రతా నావిగేషన్", toolsH:"అధునాతన సాధనాలు", imsafe:"✅ నేను సురక్షितంగా ఉన్నాను", gettingLocation: "స్థానాన్ని పొందుతోంది...", smsMsg: "అత్యవసర పరిస్థితి! సహాయం చేయండి:", namePh: "పేరు", phonePh: "ఫోన్ నంబర్", dashbtn: "📋 ఇన్సిడెంట్ డాష్‌బోర్డ్", findP: "👮 పోలీస్ స్టేషన్‌ను కనుగొనండి", findH: "🏥 ఆసుపత్రిని కనుగొనండి", imfine: "✅ నేను బాగున్నాను", checkin: "భద్రతా వ్యవస్థ: మీరు బాగున్నారా? SOS: "
+  },
+  kn: { 
+    authTitle:"PocketGuardian AI", authSub:"SOS ಸಕ್ರಿಯಗೊಳಿಸಲು ಲಾಗಿನ್ ಮಾಡಿ", authL:"ಲಾಗಿನ್", authS:"ಸೈನ್ ಅಪ್", logout:"ಲಾಗ್ ಔಟ್",
+    title:"PocketGuardian AI", subtitle:"SOS ಸುರಕ್ಷತೆ - ತುರ್ತು ಪರಿಸ್ಥಿತಿಯಲ್ಲಿ ಒತ್ತಿರಿ", fakecall:"ತುರ್ತು ಕರೆ (Mom)", contactsH:"ತುರ್ತು ಸಂಪರ್ಕಗಳು", addbtn:"+ ಸಂಪರ್ಕ ಸೇರಿಸಿ", policeH:"ಹಳೆಯ ಡೇಟಾ (Satara/Pune)", navH:"ಸುರಕ್ಷತಾ ಸಂಚರಣೆ", toolsH:"ಸುಧಾರಿತ ಪರಿಕರಗಳು", imsafe:"✅ ನಾನು ಸುರಕ್ಷಿತವಾಗಿದ್ದೇನೆ", gettingLocation: "ಸ್ಥಳವನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...", smsMsg: "ತುರ್ತುಸ್ಥಿತಿ! ಸಹಾಯ ಮಾಡಿ:", namePh: "ಹೆಸರು", phonePh: "ಫೋನ್ ಸಂಖ್ಯೆ", dashbtn: "📋 ಘಟನೆಯ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್", findP: "👮 ಪೊಲೀಸ್ ಠಾಣೆ ಹುಡುಕಿ", findH: "🏥 ಆಸ್ಪತ್ರೆ ಹುಡುಕಿ", imfine: "✅ ನಾನು ಆರಾಮವಾಗಿದ್ದೇನೆ", checkin: "ಸುರಕ್ಷತಾ ವ್ಯವಸ್ಥೆ: ನೀವು ಆರಾಮವಾಗಿದ್ದೀರಾ? SOS: "
+  }
+};
+
+function setLanguage(lang) {
+  currentLang = lang; localStorage.setItem("sosLang", lang); const t = translations[lang];
+  document.getElementById("txt-auth-title").textContent = t.authTitle;
+  document.getElementById("txt-auth-sub").textContent = t.authSub;
+  document.getElementById("authSubmitBtn").textContent = t.authL;
+  document.getElementById("authToggleLink").textContent = t.authS;
+  document.getElementById("txt-logout").textContent = t.logout;
+  document.getElementById("txt-title").textContent = t.title;
+  document.getElementById("txt-subtitle").textContent = t.subtitle;
+  document.getElementById("txt-fakecall").textContent = t.fakecall;
+  document.getElementById("txt-contacts-h").textContent = t.contactsH;
+  document.getElementById("txt-addbtn").textContent = t.addbtn;
+  document.getElementById("txt-police-h").textContent = t.policeH;
+  document.getElementById("txt-nav-h").textContent = t.navH;
+  document.getElementById("txt-tools-h").textContent = t.toolsH;
+  document.getElementById("txt-imsafe").textContent = t.imsafe;
+  document.getElementById("txt-dashbtn").textContent = t.dashbtn;
+  document.getElementById("contactName").placeholder = t.namePh;
+  document.getElementById("contactPhone").placeholder = t.phonePh;
+  document.getElementById("txt-find-police").textContent = t.findP;
+  document.getElementById("txt-find-hospital").textContent = t.findH;
+  document.getElementById("txt-imfine").textContent = t.imfine;
+
+  const app = document.getElementById("mainAppScreen");
+  if (lang === "ur") { app.setAttribute("dir", "rtl"); app.style.textAlign = "right"; }
+  else { app.setAttribute("dir", "ltr"); app.style.textAlign = "left"; }
+}
+
+// --- DATA ---
+const backupPolice = [
+  { name: "Satara City Police", phone: "02162-232133", lat: 17.6805, lng: 74.0183 },
+  { name: "Pune Shivajinagar Police", phone: "020-25536263", lat: 18.5314, lng: 73.8444 },
+  { name: "Satara Women Cell", phone: "1091", lat: 17.6963, lng: 73.9862 }
+];
+
+// --- AUTH ---
+async function handleAuthSubmit() {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+  try {
+    if (isSignupMode) { await supabaseClient.auth.signUp({ email, password }); alert("Check email!"); }
+    else { const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password }); if (error) throw error; onAuthSuccess(data.user); }
+  } catch (e) { document.getElementById("authError").textContent = e.message; }
+}
+function onAuthSuccess(user) { currentUser = user; document.getElementById("authScreen").style.display = "none"; document.getElementById("mainAppScreen").style.display = "flex"; loadContacts(); renderBackupPolice(); setLanguage(currentLang); }
+let isSignupMode = false;
+function toggleAuthMode() { isSignupMode = !isSignupMode; document.getElementById("authFormTitle").textContent = isSignupMode ? "Sign Up" : "Login"; }
+
+// --- SOS Logic (3s Countdown) ---
+let sosTimer = null;
+function startSOSCountdown() {
+  let count = 3; const btn = document.getElementById("sosBtn"); const cancel = document.getElementById("cancelSosBtn");
+  btn.textContent = count; cancel.style.display = "block"; if (navigator.vibrate) navigator.vibrate(200);
+  sosTimer = setInterval(() => {
+    count--; if (count <= 0) { clearInterval(sosTimer); btn.textContent = "SOS"; cancel.style.display = "none"; executeSOS(); }
+    else { btn.textContent = count; if (navigator.vibrate) navigator.vibrate(100); }
+  }, 1000);
+}
+function cancelSOSCountdown() { clearInterval(sosTimer); document.getElementById("sosBtn").textContent = "SOS"; document.getElementById("cancelSosBtn").style.display = "none"; }
+async function executeSOS() {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    const { data: contacts } = await supabaseClient.from("contacts").select("phone");
+    if (!contacts || contacts.length === 0) return alert("Add contacts!");
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const phones = contacts.map(c => c.phone).join(isIOS ? ";" : ",");
+    const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+    const msg = encodeURIComponent(`${translations[currentLang].smsMsg} ${mapsLink}`);
+    await supabaseClient.from("sos_logs").insert([{latitude: lat, longitude: lng, user_id: currentUser.id}]);
+    window.location.href = `sms:${phones}${isIOS ? '&' : '?'}body=${msg}`;
+  });
+}
+
+// --- SHAKE TRIGGER ---
+let shakeCount = 0; let lastShake = 0;
+async function enableShakeToSOS() {
+  if (typeof DeviceMotionEvent.requestPermission === 'function') { await DeviceMotionEvent.requestPermission(); }
+  window.addEventListener('devicemotion', (e) => {
+    const acc = e.accelerationIncludingGravity; const total = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+    if (total > 30) { const now = Date.now(); if (now - lastShake > 300) { shakeCount++; lastShake = now; if (shakeCount >= 6) { shakeCount = 0; startSOSCountdown(); } } }
+  });
+  document.getElementById("shakeBtn").textContent = "🤳 Shake SOS: ENABLED";
+}
+
+// --- NAVIGATION (Main + Alternate) ---
+async function findNearestSafeLocation(type) {
+  const info = document.getElementById("nearestSafeInfo"); const mapDiv = document.getElementById("routeMapContainer");
+  info.textContent = translations[currentLang].gettingLocation;
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+    const query = `[out:json];node(around:5000,${uLat},${uLng})[amenity~"${type === 'police' ? 'police' : 'hospital'}"];out;`;
+    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    mapDiv.style.display = "block"; if (routeLeafletMap) routeLeafletMap.remove(); 
+    routeLeafletMap = L.map(mapDiv).setView([uLat, uLng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(routeLeafletMap);
+    if (data.elements.length > 0) {
+      const dest = data.elements[0]; L.marker([uLat, uLng]).addTo(routeLeafletMap); L.marker([dest.lat, dest.lon]).addTo(routeLeafletMap).bindPopup(dest.tags.name).openPopup();
+      L.polyline([[uLat, uLng], [dest.lat, dest.lon]], {color: 'red', weight: 6}).addTo(routeLeafletMap);
+      L.polyline([[uLat, uLng], [dest.lat+0.003, dest.lon+0.003], [dest.lat, dest.lon]], {color: 'blue', weight: 4, dashArray: '5,10'}).addTo(routeLeafletMap);
+      info.textContent = dest.tags.name;
+    }
+  });
+}
+
+// --- FAKE CALL ---
+function fakeCall() { document.getElementById("fakeCallScreen").style.display = "flex"; }
+function endFakeCall() { document.getElementById("fakeCallScreen").style.display = "none"; }
+function acceptFakeCall() { document.getElementById("callStatusText").textContent = "00:01"; }
+
+// --- RECORD VIDEO ---
+let mediaRecorder; let chunks = [];
+async function toggleRecording() {
+  const btn = document.getElementById("recordBtn"); const video = document.getElementById("evidencePreview");
+  if (btn.dataset.active === "true") { mediaRecorder.stop(); btn.dataset.active = "false"; btn.textContent = "🎥 Record Evidence"; video.style.display = "none"; return; }
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  video.srcObject = stream; video.style.display = "block";
+  mediaRecorder = new MediaRecorder(stream); chunks = [];
+  mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `Evidence_${Date.now()}.webm`; a.click();
+    stream.getTracks().forEach(t => t.stop());
+  };
+  mediaRecorder.start(); btn.dataset.active = "true"; btn.textContent = "⏹️ Stop and Save";
+}
+
+// --- QR & UTILS ---
+async function toggleLiveShare() {
+  const qrBox = document.getElementById("qrCodeBox"); const canvas = document.getElementById("qrCodeCanvas");
+  const link = `${window.location.origin}/?track=TRK_${Math.random().toString(36).substr(2, 9)}`;
+  canvas.innerHTML = ""; new QRCode(canvas, { text: link, width: 160, height: 160 });
+  qrBox.style.display = "block"; document.getElementById("liveShareInfo").textContent = link;
+}
+function renderBackupPolice() { document.getElementById("policeList").innerHTML = backupPolice.map(p => `<div class="police-item"><span>${p.name}</span><a href="tel:${p.phone}">Call</a></div>`).join(""); }
+async function loadContacts() {
+  supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id).then(({data}) => {
+    const list = document.getElementById("contactList"); list.innerHTML = "";
+    if (data) data.forEach(c => {
+      const div = document.createElement("div"); div.className="contact-item";
+      div.innerHTML = `<span>${c.name} (${c.phone})</span><button class="del-btn" onclick="deleteContact('${c.id}')">✕</button>`;
+      list.appendChild(div);
+    });
+  });
+}
+function addContact() {
+  const n = document.getElementById("contactName").value, p = document.getElementById("contactPhone").value;
+  supabaseClient.from("contacts").insert([{name: n, phone: p, user_id: currentUser.id}]).then(loadContacts);
+}
+function deleteContact(id) { supabaseClient.from("contacts").delete().eq("id", id).then(loadContacts); }
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+function imSafe() { alert("Safe status sent to family."); }
+function toggleJourneyMode() { 
+  const banner = document.getElementById("checkinBanner");
+  const countdown = document.getElementById("checkinCountdown");
+  banner.style.display = "block";
+  let sec = 30; countdown.textContent = sec;
+  let timer = setInterval(() => {
+    sec--; countdown.textContent = sec;
+    if (sec <= 0) { clearInterval(timer); banner.style.display = "none"; startSOSCountdown(); }
+  }, 1000);
+}
+function confirmSafeCheckin() { document.getElementById("checkinBanner").style.display = "none"; }
+async function toggleIncidentDashboard() {
+  const d = document.getElementById("incidentDashboard"); d.style.display = "block";
+  const { data } = await supabaseClient.from("sos_logs").select("*").eq("user_id", currentUser.id);
+  d.innerHTML = data.map(l => `<div class="police-item"><span>SOS: ${new Date(l.created_at).toLocaleDateString()}</span><a href="https://maps.google.com/?q=${l.latitude},${l.longitude}" target="_blank">Map</a></div>`).join("");
+}
+
+window.onload = () => {
+  supabaseClient.auth.getSession().then(({data}) => { if (data.session) onAuthSuccess(data.session.user); else setLanguage(currentLang); });
+};
+</script>
+</body>
+</html>
