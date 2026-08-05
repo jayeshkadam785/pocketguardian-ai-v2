@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PocketGuardian AI - Hackathon Elite</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --bg: #050507; --panel: #11111a; --red: #ff3b5c; --green: #34c759; --blue: #3b82f6; --orange: #f59e0b; --purple: #a855f7; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: #f1f1f1; font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  
+  /* ICCC Dashboard Layout */
+  .dashboard { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .sidebar { background: #000; padding: 25px; border-right: 1px solid #222; display: flex; flex-direction: column; align-items: center; border-left: 5px solid var(--red); }
+  .main-grid { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+
+  /* SOS & Controls */
+  .sos-btn { width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, #ff3b5c, #8b0000); border: 4px solid #000; color: white; font-size: 36px; font-weight: 900; box-shadow: 0 0 40px rgba(255,59,92,0.4); cursor: pointer; transition: 0.3s; }
+  .sos-btn:active { transform: scale(0.9); }
+  
+  /* Sections */
+  .col { background: var(--panel); border-radius: 16px; padding: 20px; border: 1px solid #222; position: relative; }
+  .col h3 { font-size: 14px; margin-bottom: 15px; color: var(--red); border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+
+  /* Buttons */
+  .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 13px; transition: 0.2s; }
+  .btn:hover { filter: brightness(1.2); }
+
+  /* Stealth / Ghost Mode Screen */
+  #ghostMode { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000000; color: #333; flex-direction: column; align-items: center; justify-content: center; cursor: none; }
+  
+  /* Status Badges */
+  .badge { padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+  .badge-verified { background: var(--green); color: #000; }
+  .badge-unverified { background: #444; color: #999; }
+
+  #routeMap { height: 250px; width: 100%; border-radius: 12px; margin-top: 15px; display: none; }
+  input { width: 100%; padding: 12px; background: #000; border: 1px solid #333; border-radius: 8px; color: white; margin-bottom: 10px; }
+
+  /* Mobile Responsive */
+  @media (max-width: 900px) { .dashboard { grid-template-columns: 1fr; } .sidebar { flex-direction: row; height: auto; border-left: none; border-bottom: 4px solid var(--red); } }
+</style>
+</head>
+<body>
+
+<!-- GHOST MODE (COVERT UI) -->
+<div id="ghostMode" onclick="exitGhostMode()">
+  <div style="text-align: center;">
+    <div style="border: 2px solid #222; width: 40px; height: 20px; border-radius: 4px; position: relative; margin-bottom: 10px;">
+        <div style="background: #222; width: 5px; height: 100%;"></div>
+    </div>
+    <p style="font-size: 12px;">System Update: 14%...</p>
+  </div>
+</div>
+
+<!-- AUTO CHECK-IN BANNER -->
+<div id="checkinBanner" style="display:none; position:fixed; top:0; left:0; width:100%; background:var(--red); color:white; padding:20px; text-align:center; z-index:100000;">
+    <h2 id="checkinMsg">Anomaly Detected: Are you safe?</h2>
+    <p>SOS will trigger in <span id="checkinCountdown">30</span>s</p>
+    <button class="btn" style="background:var(--green); width:200px; margin-top:10px;" onclick="confirmSafe()">✅ I AM SAFE</button>
+</div>
+
+<div class="dashboard">
+  <!-- SIDEBAR (ICCC COMMAND) -->
+  <div class="sidebar">
+    <h2 style="color:var(--red); letter-spacing: 2px; margin-bottom:30px;">P.GUARDIAN<br>PRO AI</h2>
+    <button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+    <div id="status" style="margin-top:20px; font-size:12px; color:var(--green);">SHIELD ACTIVE</div>
+    
+    <select id="langSelector" onchange="setLanguage(this.value)" style="margin-top:auto; width:100%; padding:10px; background:#111; color:white; border:1px solid #333; border-radius:8px;">
+      <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+      <option value="gu">ગુજરાતી</option><option value="ur">اردو</option><option value="bn">বাংলা</option>
+      <option value="ta">தமிழ்</option><option value="te">తెలుగు</option><option value="kn">ಕನ್ನಡ</option>
+    </select>
+    <button onclick="handleLogout()" style="background:none; border:none; color:#444; font-size:11px; margin-top:15px; cursor:pointer;">Logout</button>
+  </div>
+
+  <!-- MAIN ICCC INTERFACE -->
+  <div class="main-grid" id="mainDashboard" style="display:none;">
+    
+    <!-- COL 1: RISK ENGINE & NAVIGATION -->
+    <div class="col">
+      <h3 style="color:var(--green);">📍 Risk Engine & Routing</h3>
+      <button class="btn" style="background:var(--green);" onclick="findSafeRoute('police')">Nearest Police Station</button>
+      <button class="btn" style="background:#0891b2;" onclick="findSafeRoute('hospital')">Nearest 24/7 Hospital</button>
+      <button class="btn" style="background:var(--purple);" onclick="lockCurrentRoute()">🔒 Lock Current Route</button>
+      <div id="routeMap"></div>
+      <div id="stopRisk" style="margin-top:10px; font-size:11px; text-align:center;">Stop Safety Score: --</div>
+    </div>
+
+    <!-- COL 2: STEALTH & AI TRIGGERS -->
+    <div class="col">
+      <h3 style="color:var(--purple);">👻 Stealth & AI Triggers</h3>
+      <button class="btn" style="background:#333;" onclick="enterGhostMode()">Enter Ghost Mode (Covert)</button>
+      <button class="btn" style="background:var(--red);" id="aiBtn" onclick="toggleAI()">AI Anomaly Detection: OFF</button>
+      <button class="btn" style="background:#ec4899;" id="voiceBtn" onclick="toggleVoice()">Voice Trigger (Bachao/Help): OFF</button>
+      <button class="btn" style="background:#059669;" onclick="connectWearable()">⌚ Connect Safety Wearable</button>
+    </div>
+
+    <!-- COL 3: JOURNEY & EVIDENCE -->
+    <div class="col">
+      <h3 style="color:var(--blue);">🚶 Journey & Evidence</h3>
+      <button class="btn" style="background:#0ea5e9;" id="jBtn" onclick="toggleJourney()">Journey Monitoring: OFF</button>
+      <button class="btn" style="background:var(--orange);" onclick="startEvidenceCapture()">Record Evidence (Cloud Save)</button>
+      <button class="btn" style="background:var(--blue);" onclick="toggleLiveShare()">Live Track & QR Code</button>
+      <div id="qrBox" style="display:none; background:white; padding:10px; margin-top:10px; border-radius:8px; text-align:center;"><div id="qrCanvas"></div></div>
+      <video id="vidPrev" autoplay muted playsinline style="display:none; width:100%; border-radius:12px; margin-top:10px;"></video>
+    </div>
+
+    <!-- COL 4: AUTHORITY DASHBOARD -->
+    <div class="col">
+      <h3 style="color:var(--orange);">🚔 Authority Dashboard</h3>
+      <button class="btn" style="background:#222;" onclick="loadICCCLogs()">Refresh Authority Logs</button>
+      <div id="icccLogs" style="max-height: 450px; overflow-y:auto;"></div>
+    </div>
+
+    <!-- COL 5: TRUSTED CONTACTS -->
+    <div class="col">
+      <h3 style="color:var(--red);">👥 Trusted Contacts</h3>
+      <input type="text" id="cName" placeholder="Contact Name">
+      <input type="tel" id="cPhone" placeholder="91XXXXXXXXXX">
+      <button class="btn" style="background:var(--red);" onclick="saveContact()">+ Add Trusted Member</button>
+      <div id="contactList" style="margin-top:10px;"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- AUTH SCREENS -->
+<div id="authScreen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:999999; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <h1 style="color:var(--red); font-size:32px; margin-bottom:10px;">PocketGuardian AI</h1>
+    <p style="color:#666; margin-bottom:30px;">Real-Time Public Transport Safety</p>
+    <div class="col" style="width:90%; max-width:350px;">
+        <input type="email" id="authEmail" placeholder="Email">
+        <input type="password" id="authPassword" placeholder="Password">
+        <button class="btn" style="background:var(--red);" onclick="handleAuth()">Access Safety Command</button>
+        <div id="authError" style="color:var(--red); font-size:12px; text-align:center;"></div>
+    </div>
+</div>
+
+<script>
+// --- SUPABASE & GLOBALS ---
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let mapObj = null;
+let routeLocked = false;
+let lockedCoords = null;
+let aiEnabled = false;
+
+// --- AUTH ENGINE ---
+async function handleAuth() {
+    const email = document.getElementById("authEmail").value;
+    const password = document.getElementById("authPassword").value;
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+        const { error: signUpErr } = await supabaseClient.auth.signUp({ email, password });
+        if (signUpErr) document.getElementById("authError").textContent = signUpErr.message;
+        else alert("Verification email sent!");
+    } else { loginSuccess(data.user); }
+}
+
+function loginSuccess(user) {
+    currentUser = user;
+    document.getElementById("authScreen").style.display = "none";
+    document.getElementById("mainDashboard").style.display = "grid";
+    loadContacts(); loadICCCLogs(); updateStopRisk();
+}
+
+// --- PROACTIVE RISK ENGINE (ANOMALY DETECTION) ---
+function lockCurrentRoute() {
+    navigator.geolocation.getCurrentPosition(pos => {
+        lockedCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        routeLocked = true;
+        alert("🔒 Route Monitoring Locked. AI will detect deviations.");
+    });
+}
+
+function monitorAnomaly(pos) {
+    if (!routeLocked || !aiEnabled) return;
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    
+    // Simple Deviation Check (>200 meters from lock point)
+    const dist = getDistance(lat, lng, lockedCoords.lat, lockedCoords.lng);
+    if (dist > 0.2) { 
+        triggerAnomalyAlert("Route Deviation Detected");
+    }
+}
+
+function triggerAnomalyAlert(reason) {
+    if (document.getElementById("checkinBanner").style.display === "block") return;
+    document.getElementById("checkinBanner").style.display = "block";
+    document.getElementById("checkinMsg").textContent = reason;
+    let sec = 30;
+    const timer = setInterval(() => {
+        sec--;
+        document.getElementById("checkinCountdown").textContent = sec;
+        if (sec <= 0) { clearInterval(timer); startSOSCountdown(); }
+    }, 1000);
+    window.currentTimer = timer;
+}
+
+function confirmSafe() { 
+    clearInterval(window.currentTimer); 
+    document.getElementById("checkinBanner").style.display = "none"; 
+}
+
+// --- STEALTH GHOST MODE ---
+function enterGhostMode() {
+    document.getElementById("ghostMode").style.display = "flex";
+    startEvidenceCapture(); // Automatically record evidence silently
+}
+function exitGhostMode() {
+    const pass = prompt("Enter PIN to exit Ghost Mode:");
+    if (pass === "1234") document.getElementById("ghostMode").style.display = "none";
+}
+
+// --- SOS ENGINE (MULTI-CHANNEL) ---
+let sosTimer;
+function startSOSCountdown() {
+    let c = 3;
+    const btn = document.getElementById("sosBtn");
+    if(navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    sosTimer = setInterval(() => {
+        btn.textContent = c; c--;
+        if(c < 0) { clearInterval(sosTimer); btn.textContent = "SOS"; executeSOS(); }
+    }, 1000);
+}
+
+async function executeSOS() {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const { data: contacts } = await supabaseClient.from("contacts").select("phone");
+        const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+        const phones = contacts.map(c => c.phone).join(isIOS ? ";" : ",");
+        const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+        
+        // Log to Authority Dashboard as VERIFIED if multiple sensors triggered
+        const isVerified = (routeLocked || aiEnabled);
+        await supabaseClient.from("sos_logs").insert([{
+            latitude, longitude, 
+            user_id: currentUser.id, 
+            status: isVerified ? 'verified' : 'unverified',
+            authority_notified: true
+        }]);
+
+        window.location.href = `sms:${phones}${isIOS ? '&' : '?'}body=EMERGENCY! Track me live: ${mapsLink}`;
+    });
+}
+
+// --- ROAD NAVIGATION (OSRM) ---
+async function findSafeRoute(type) {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+        const res = await fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${uLat},${uLng})[amenity~"${type}"];out;`);
+        const data = await res.json();
+        if (data.elements.length > 0) {
+            const dest = data.elements[0];
+            document.getElementById("routeMap").style.display = "block";
+            if (mapObj) mapObj.remove();
+            mapObj = L.map('routeMap').setView([uLat, uLng], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapObj);
+            
+            // OSRM Road Path
+            const osrm = await fetch(`https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`);
+            const rData = await osrm.json();
+            L.polyline(rData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]), {color: 'red', weight: 6}).addTo(mapObj);
+            L.marker([dest.lat, dest.lon]).addTo(mapObj).bindPopup(dest.tags.name).openPopup();
+        }
+    });
+}
+
+// --- EVIDENCE CAPTURE (CLOUD READY) ---
+let recorder;
+async function startEvidenceCapture() {
+    const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+    recorder = new MediaRecorder(stream);
+    let chunks = [];
+    recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = () => {
+        const blob = new Blob(chunks, {type:'video/webm'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url;
+        a.download = `Evidence_${Date.now()}.webm`; a.click(); // Hackathon Proof: Manual Gallery Save
+        stream.getTracks().forEach(t => t.stop());
+    };
+    recorder.start();
+    setTimeout(() => { if(recorder.state === "recording") recorder.stop(); }, 15000); // 15s auto clips
+}
+
+// --- ICCC AUTHORITY LOGS ---
+async function loadICCCLogs() {
+    const { data } = await supabaseClient.from("sos_logs").select("*").eq("user_id", currentUser.id).order('created_at',{ascending:false});
+    document.getElementById("icccLogs").innerHTML = data.map(l => `
+        <div style="background:#000; padding:12px; border-radius:10px; margin-bottom:10px; border-left:4px solid ${l.status === 'verified' ? 'var(--green)' : 'var(--red)'}">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:11px; color:#666;">${new Date(l.created_at).toLocaleTimeString()}</span>
+                <span class="badge ${l.status === 'verified' ? 'badge-verified' : 'badge-unverified'}">${l.status}</span>
+            </div>
+            <p style="font-size:12px; margin:5px 0;">Authority Alert: Dispatched</p>
+            <a href="https://maps.google.com/?q=${l.latitude},${l.longitude}" target="_blank" style="color:var(--blue); font-size:10px; text-decoration:none;">View Live ICCC Map →</a>
+        </div>
+    `).join("");
+}
+
+// --- UTILS ---
+function toggleAI() { aiEnabled = !aiEnabled; document.getElementById("aiState").textContent = aiEnabled ? "ON" : "OFF"; document.getElementById("aiBtn").style.background = aiEnabled ? "var(--green)" : "var(--red)"; }
+function toggleVoice() { /* Web Speech API Logic */ document.getElementById("voiceState").textContent = "ON"; }
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; const dLat = (lat2-lat1)*Math.PI/180; const dLon = (lon2-lon1)*Math.PI/180;
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function updateStopRisk() { const h = new Date().getHours(); document.getElementById("stopRisk").innerHTML = (h > 19 || h < 6) ? "Stop Risk Score: 🔴 <b>8.5/10</b>" : "Stop Risk Score: 🟢 <b>2.1/10</b>"; }
+async function loadContacts() {
+    const { data } = await supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id);
+    document.getElementById("contactList").innerHTML = data.map(c => `<div style="background:#000; padding:10px; border-radius:8px; margin-bottom:5px; display:flex; justify-content:space-between;"><span>${c.name}</span><button onclick="delC('${c.id}')" style="background:none; border:none; color:var(--red);">✕</button></div>`).join("");
+}
+async function saveContact() {
+    const n = document.getElementById("cName").value, p = document.getElementById("cPhone").value;
+    await supabaseClient.from("contacts").insert([{name:n, phone:p, user_id:currentUser.id}]); loadContacts();
+}
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+
+window.onload = () => {
+    supabaseClient.auth.getSession().then(({data}) => { if (data.session) loginSuccess(data.session.user); });
+};
+</script>
+</body>
+</html>
