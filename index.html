@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PocketGuardian AI Pro - Tactical Elite</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --bg: #050507; --panel: #11111a; --red: #ff3b5c; --green: #34c759; --blue: #3b82f6; --orange: #f59e0b; --purple: #a855f7; --wa: #075e54; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: #f1f1f1; font-family: 'Segoe UI', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  
+  /* SOS RADAR ANIMATION */
+  .sos-wrap { position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; margin: 20px auto; }
+  .sos-btn { width: 130px; height: 130px; border-radius: 50%; background: radial-gradient(circle, #ff3b5c, #8b0000); border: 5px solid #000; color: white; font-size: 32px; font-weight: 900; position: relative; z-index: 10; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+  .sos-wrap::before, .sos-wrap::after { content: ""; position: absolute; width: 130px; height: 130px; border-radius: 50%; border: 2px solid var(--red); animation: pulse 2s linear infinite; opacity: 0; z-index: 1; }
+  .sos-wrap::after { animation-delay: 1s; }
+  @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(2.2); opacity: 0; } }
+  .sos-wrap.active::before { animation: pulse 0.5s linear infinite; border-color: white; }
+
+  /* Layout */
+  .dashboard-container { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .sidebar { background: #000; padding: 20px; border-right: 1px solid #222; display: flex; flex-direction: column; align-items: center; border-left: 5px solid var(--red); }
+  .main-grid { padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+  .col { background: var(--panel); border-radius: 16px; padding: 18px; border: 1px solid #222; display: flex; flex-direction: column; }
+  .col h3 { font-size: 11px; margin-bottom: 15px; color: var(--red); border-bottom: 1px solid #333; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Buttons & UI */
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 12px; transition: 0.2s; }
+  input { width: 100%; padding: 12px; background: #000; border: 1px solid #333; border-radius: 8px; color: white; margin-bottom: 10px; font-size: 13px; }
+  
+  /* ICCC Feed Badges */
+  .badge { padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+  .badge-verified { background: var(--green); color: #000; }
+  .badge-ai { background: var(--orange); color: #000; }
+
+  #routeMap { height: 200px; width: 100%; border-radius: 12px; margin-top: 10px; display: none; border: 1px solid #333; }
+  .audio-wave { display: flex; align-items: flex-end; gap: 2px; height: 15px; margin: 5px 0; }
+  .audio-bar { width: 3px; background: var(--green); animation: wave 1s infinite; }
+  @keyframes wave { 0%, 100% { height: 5px; } 50% { height: 15px; } }
+
+  #checkinBanner { display: none; position: fixed; top: 0; left: 0; width: 100%; background: var(--red); color: white; padding: 20px; text-align: center; z-index: 100000; font-weight: bold; }
+  .full-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000000; flex-direction: column; }
+
+  @media (max-width: 900px) { .dashboard-container { grid-template-columns: 1fr; } .sidebar { flex-direction: row; height: auto; border-bottom: 4px solid var(--red); justify-content: space-between; } }
+</style>
+</head>
+<body>
+
+<!-- ANOMALY / JOURNEY CHECK-IN -->
+<div id="checkinBanner">
+    🚨 AI DETECTED ANOMALY: ARE YOU SAFE? <br>
+    SOS TRIGGERS IN <span id="checkinCountdown">30</span>s
+    <button style="background:var(--green); color:white; border:none; padding:10px 20px; border-radius:5px; margin-top:10px; font-weight:bold;" onclick="confirmSafe()">✅ I AM SAFE</button>
+</div>
+
+<!-- GHOST MODES -->
+<div id="whatsappGhost" class="full-overlay" onclick="exitGhost()">
+    <div style="background:var(--wa); color:white; padding:15px; display:flex; align-items:center; gap:12px;"><div style="width:35px; height:35px; background:#ccc; border-radius:50%;"></div><span>Mom ❤️</span></div>
+    <div style="flex: 1; background: #e5ddd5; padding: 15px;"><div style="background:white; padding:10px; border-radius:10px; margin-bottom:10px; max-width:80%; color:black;">Kahan pahunchi?</div></div>
+</div>
+
+<div id="authScreen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:999999; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <h1 style="color:var(--red); font-size:32px; font-weight:900; margin-bottom:20px;">POCKET GUARDIAN AI</h1>
+    <div class="col" style="width:90%; max-width:350px;">
+        <input type="email" id="authEmail" placeholder="Email Address">
+        <input type="password" id="authPassword" placeholder="Password">
+        <button class="btn" style="background:var(--red); padding:15px;" onclick="handleAuthSubmit()">INITIALIZE SYSTEM</button>
+        <a href="#" onclick="handleForgot()" style="color:#666; font-size:11px; text-align:center; text-decoration:none; display:block; margin-top:10px;">Forgot Password?</a>
+    </div>
+</div>
+
+<div class="dashboard-container">
+  <div class="sidebar">
+    <div style="color:var(--red); font-weight: 900;">TACTICAL COMMAND</div>
+    <div class="sos-wrap" id="sosAnimateWrap"><button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button></div>
+    <div id="status" style="font-size:12px; color:var(--green); font-weight:bold;">SHIELD: ARMED</div>
+    
+    <select id="langSelector" onchange="setLanguage(this.value)" style="margin-top:auto; width:100%; padding:8px; background:#111; color:white; border:1px solid #333; border-radius:5px;">
+      <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+    </select>
+  </div>
+
+  <div class="main-grid" id="mainDashboard" style="display:none;">
+    <!-- COL 1: NAVIGATION & DEVIATION -->
+    <div class="col">
+      <h3 style="color:var(--green);">📍 Tactical Nav & Deviation</h3>
+      <button class="btn" style="background:var(--green);" onclick="findHelpRoute('police')">Find Police Station</button>
+      <button class="btn" style="background:#0891b2;" onclick="findHelpRoute('hospital')">Find Hospital</button>
+      <div id="routeMap"></div>
+      <div id="deviationStatus" style="margin-top:10px; font-size:10px; text-align:center; color:var(--orange);">Deviation Monitor: IDLE</div>
+    </div>
+
+    <!-- COL 2: AI SENSORS & VOICE -->
+    <div class="col">
+      <h3 style="color:var(--purple);">⚙️ AI Sensors & Voice</h3>
+      <button class="btn" style="background:var(--red);" id="aiBtn" onclick="toggleThreatDetection()">AI Motion Threat: <b id="aiState">OFF</b></button>
+      <button class="btn" style="background:#ec4899;" id="voiceBtn" onclick="toggleVoiceSOS()">Voice SOS: <b id="voiceState">OFF</b></button>
+      <button class="btn" style="background:var(--purple);" id="shakeBtn" onclick="toggleShake()">Shake SOS (6x): <b id="shakeState">OFF</b></button>
+      <div id="voiceIndicator" style="font-size:10px; color:var(--blue); text-align:center;">Trigger: "HELP", "BACHAO"</div>
+    </div>
+
+    <!-- COL 3: GHOST & JOURNEY -->
+    <div class="col">
+      <h3 style="color:var(--blue);">🎭 Stealth & Journey</h3>
+      <button class="btn" style="background:var(--wa);" onclick="enterGhost('wa')">WhatsApp Ghost</button>
+      <button class="btn" style="background:#333;" onclick="enterGhost('dead')">Update Ghost</button>
+      <button class="btn" style="background:#0ea5e9;" id="jBtn" onclick="toggleJourney()">Journey Monitoring: <b id="jState">OFF</b></button>
+    </div>
+
+    <!-- COL 4: ICCC VERIFIED FEED -->
+    <div class="col" style="background:#090910;">
+      <h3 style="color:var(--orange);">🚨 ICCC Tactical Feed</h3>
+      <div id="icccFeed"></div>
+    </div>
+
+    <!-- COL 5: EVIDENCE & CONTACTS -->
+    <div class="col">
+      <h3 style="color:var(--red);">📁 Evidence & Trusted</h3>
+      <button class="btn" style="background:var(--orange);" onclick="captureEvidence()">Silent Video Evidence</button>
+      <input type="text" id="cn" placeholder="Name"><input type="tel" id="cp" placeholder="Phone">
+      <button class="btn btn-nav" style="background:var(--red)" onclick="saveContact()">+ Add Contact</button>
+      <div id="contactList" style="margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- CORE CONFIG ---
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null, mapObj = null, routeLine = null;
+let aiActive = false, voiceActive = false, shakeActive = false, journeyActive = false;
+let currentLang = "en";
+let expectedPath = [];
+
+// --- AUTH ---
+async function handleAuthSubmit() {
+    const e = document.getElementById("authEmail").value, p = document.getElementById("authPassword").value;
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email: e, password: p });
+    if (!error) loginSuccess(data.user);
+    else { const { error:sErr } = await supabaseClient.auth.signUp({email:e, password:p}); if(!sErr) alert("Verify email!"); }
+}
+function loginSuccess(user) { currentUser = user; document.getElementById("authScreen").style.display="none"; document.getElementById("mainDashboard").style.display="grid"; loadContacts(); loadICCC(); }
+
+// --- SOS LOGIC (Verified vs AI Detected) ---
+let timer;
+function startSOSCountdown() {
+    document.getElementById("sosAnimateWrap").classList.add("active");
+    let c = 3; const b = document.getElementById("sosBtn");
+    if(navigator.vibrate) navigator.vibrate(200);
+    timer = setInterval(() => {
+        b.textContent = c; c--;
+        if(c < 0) { clearInterval(timer); b.textContent = "SOS"; document.getElementById("sosAnimateWrap").classList.remove("active"); executeSOS('verified'); }
+    }, 1000);
+}
+
+async function executeSOS(statusType = 'unverified') {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        await supabaseClient.from("sos_logs").insert([{latitude, longitude, user_id: currentUser.id, status: statusType}]);
+        loadICCC();
+        if(statusType === 'verified') {
+            const { data } = await supabaseClient.from("contacts").select("phone");
+            const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+            window.location.href = `sms:${data.map(c=>c.phone).join(isIOS?';':',')}${isIOS?'&':'?'}body=EMERGENCY! Track me: https://maps.google.com/?q=${latitude},${longitude}`;
+        }
+    });
+}
+
+// --- NAVIGATION & DEVIATION ENGINE ---
+async function findHelpRoute(type) {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+        document.getElementById("routeMap").style.display = "block";
+        if (mapObj) mapObj.remove();
+        mapObj = L.map('routeMap').setView([uLat, uLng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapObj);
+        
+        const res = await fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${uLat},${uLng})[amenity~"${type}"];out;`);
+        const data = await res.json();
+        if (data.elements.length > 0) {
+            const dest = data.elements[0];
+            const osrm = await fetch(`https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`);
+            const rData = await osrm.json();
+            if(rData.routes.length > 0) {
+                expectedPath = rData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                L.polyline(expectedPath, {color: 'red', weight: 6}).addTo(mapObj);
+                L.marker([dest.lat, dest.lon]).addTo(mapObj).bindPopup(dest.tags.name).openPopup();
+                document.getElementById("deviationStatus").textContent = "DEVIATION MONITOR: ACTIVE";
+            }
+        }
+    });
+}
+
+// --- VOICE SOS (Web Speech API) ---
+let recognition;
+function toggleVoiceSOS() {
+    const status = document.getElementById("voiceState");
+    if (!voiceActive) {
+        const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if(!Speech) return alert("Voice Not Supported");
+        recognition = new Speech(); recognition.continuous = true;
+        recognition.onresult = (e) => {
+            const word = e.results[e.results.length-1][0].transcript.toLowerCase();
+            if(word.includes("help") || word.includes("bachao") || word.includes("emergency")) {
+                startSOSCountdown();
+            }
+        };
+        recognition.start(); voiceActive = true; status.textContent = "ON";
+    } else { recognition.stop(); voiceActive = false; status.textContent = "OFF"; }
+}
+
+// --- AI THREAT DETECTION (Accelerometer Anomaly) ---
+function toggleThreatDetection() {
+    aiActive = !aiActive;
+    document.getElementById("aiState").textContent = aiActive ? "ON" : "OFF";
+    if(aiActive) {
+        window.addEventListener('devicemotion', handleMotionAnomaly);
+    } else {
+        window.removeEventListener('devicemotion', handleMotionAnomaly);
+    }
+}
+
+function handleMotionAnomaly(e) {
+    const acc = e.accelerationIncludingGravity;
+    const force = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+    if(force > 45) { // Erratic movement threshold
+        triggerAnomalyCheck("Erratic Movement Detected");
+    }
+}
+
+function triggerAnomalyCheck(reason) {
+    if(document.getElementById("checkinBanner").style.display === "block") return;
+    document.getElementById("checkinBanner").style.display = "block";
+    let c = 30;
+    const t = setInterval(() => {
+        document.getElementById("checkinCountdown").textContent = c; c--;
+        if(c < 0) { clearInterval(t); executeSOS('unverified'); document.getElementById("checkinBanner").style.display="none"; }
+    }, 1000);
+    window.checkinTimer = t;
+}
+function confirmSafe() { clearInterval(window.checkinTimer); document.getElementById("checkinBanner").style.display = "none"; }
+
+// --- ICCC FEED WITH LABELS ---
+async function loadICCC() {
+    const { data } = await supabaseClient.from("sos_logs").select("*").eq("user_id", currentUser.id).order('created_at',{ascending:false});
+    document.getElementById("icccFeed").innerHTML = data.map(l => `
+        <div style="background:#000; padding:10px; border-radius:10px; margin-bottom:8px; border-left:4px solid ${l.status === 'verified' ? 'var(--green)' : 'var(--orange)'}">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="badge ${l.status === 'verified' ? 'badge-verified' : 'badge-ai'}">${l.status === 'verified' ? 'VERIFIED SOS' : 'AI ANOMALY'}</span>
+                <span style="font-size:9px; color:#555;">${new Date(l.created_at).toLocaleTimeString()}</span>
+            </div>
+            <div class="audio-wave">${Array(5).fill('<div class="audio-bar"></div>').join('')}</div>
+            <a href="https://maps.google.com/?q=${l.latitude},${l.longitude}" target="_blank" style="color:var(--blue); font-size:10px; text-decoration:none;">VIEW TACTICAL MAP</a>
+        </div>
+    `).join("");
+}
+
+// --- UTILS ---
+function toggleShake() { shakeActive = !shakeActive; document.getElementById("shakeState").textContent = shakeActive ? "ON" : "OFF"; }
+window.addEventListener('devicemotion', (e) => { if(shakeActive && Math.abs(e.accelerationIncludingGravity.x) > 35) startSOSCountdown(); });
+function enterGhost(m) { if(m === 'wa') document.getElementById("whatsappGhost").style.display="flex"; executeSOS('verified'); }
+function exitGhost() { document.querySelectorAll(".full-overlay").forEach(e => e.style.display="none"); }
+async function captureEvidence() {
+    const stream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+    const recorder = new MediaRecorder(stream); let chunks = []; recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, {type:'video/webm'})); a.download = `Evidence.webm`; a.click(); stream.getTracks().forEach(t => t.stop()); };
+    recorder.start(); setTimeout(() => recorder.stop(), 5000);
+}
+async function loadContacts() { const { data } = await supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id); document.getElementById("contactList").innerHTML = data.map(c => `<div style="background:#000; padding:8px; border-radius:5px; margin-bottom:5px; font-size:12px;">${c.name}</div>`).join(""); }
+async function saveContact() { const n = document.getElementById("cn").value, p = document.getElementById("cp").value; await supabaseClient.from("contacts").insert([{name:n, phone:p, user_id:currentUser.id}]); loadContacts(); }
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+
+window.onload = () => { supabaseClient.auth.onAuthStateChange((event, session) => { if (session) loginSuccess(session.user); }); };
+</script>
+</body>
+</html>
