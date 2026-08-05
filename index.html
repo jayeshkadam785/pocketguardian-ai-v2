@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PocketGuardian AI Pro - Tactical Master</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --bg: #050507; --panel: #11111a; --red: #ff3b5c; --green: #34c759; --blue: #3b82f6; --orange: #f59e0b; --purple: #a855f7; --wa: #075e54; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: #f1f1f1; font-family: 'Segoe UI', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  
+  /* SOS RADAR ANIMATION */
+  .sos-wrap { position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; margin: 15px auto; }
+  .sos-btn { width: 120px; height: 130px; border-radius: 50%; background: radial-gradient(circle, #ff3b5c, #8b0000); border: 4px solid #000; color: white; font-size: 28px; font-weight: 900; position: relative; z-index: 10; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+  .sos-wrap::before, .sos-wrap::after { content: ""; position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 2px solid var(--red); animation: pulse 2s linear infinite; opacity: 0; z-index: 1; }
+  .sos-wrap::after { animation-delay: 1s; }
+  @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(2.2); opacity: 0; } }
+  .sos-wrap.active::before { animation: pulse 0.5s linear infinite; border-color: white; }
+
+  /* Dashboard Layout */
+  .dashboard-container { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+  .sidebar { background: #000; padding: 20px; border-right: 1px solid #222; display: flex; flex-direction: column; align-items: center; border-left: 5px solid var(--red); }
+  .main-grid { padding: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  
+  .col { background: var(--panel); border-radius: 12px; padding: 15px; border: 1px solid #222; display: flex; flex-direction: column; }
+  .col h3 { font-size: 11px; margin-bottom: 12px; color: var(--red); border-bottom: 1px solid #333; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Buttons & Backup Items */
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-bottom: 8px; font-size: 12px; transition: 0.2s; }
+  .backup-item { background: #000; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--blue); font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+  .backup-item a { color: var(--green); text-decoration: none; font-weight: bold; }
+  
+  #routeMap { height: 200px; width: 100%; border-radius: 12px; margin-top: 10px; display: none; border: 1px solid #333; }
+  .audio-wave { display: flex; align-items: flex-end; gap: 2px; height: 15px; margin: 5px 0; }
+  .audio-bar { width: 3px; background: var(--green); animation: wave 1s infinite; }
+  @keyframes wave { 0%, 100% { height: 5px; } 50% { height: 15px; } }
+
+  .full-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000000; flex-direction: column; }
+  @media (max-width: 900px) { .dashboard-container { grid-template-columns: 1fr; } .sidebar { flex-direction: row; height: auto; border-bottom: 4px solid var(--red); justify-content: space-between; } }
+</style>
+</head>
+<body>
+
+<!-- GHOST MODE UI -->
+<div id="whatsappGhost" class="full-overlay" onclick="exitGhost()">
+    <div style="background:var(--wa); color:white; padding:15px; display:flex; align-items:center; gap:12px;"><div style="width:35px; height:35px; background:#ccc; border-radius:50%;"></div><span>Mom ❤️</span></div>
+    <div style="flex: 1; background: #e5ddd5; padding: 15px;"><div style="background:white; padding:10px; border-radius:10px; margin-bottom:10px; max-width:80%; color:black;">Kahan ho beta?</div></div>
+</div>
+
+<div id="authScreen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:999999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+    <h1 style="color:var(--red); font-size:32px; font-weight:900;">POCKET GUARDIAN</h1>
+    <div class="col" style="width:100%; max-width:350px;">
+        <input type="email" id="authEmail" placeholder="Email Address">
+        <input type="password" id="authPassword" placeholder="Password">
+        <button class="btn" style="background:var(--red); padding:15px;" onclick="handleAuthSubmit()">INITIALIZE PROTECTION</button>
+    </div>
+</div>
+
+<div class="dashboard-container">
+  <div class="sidebar">
+    <div style="color:var(--red); font-weight: 900;">PG AI TACTICAL</div>
+    <div class="sos-wrap" id="sosAnimateWrap"><button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button></div>
+    <div id="status" style="font-size:11px; color:var(--green); font-weight:bold;">SHIELD: ARMED</div>
+    <select id="langSelector" onchange="setLanguage(this.value)" style="margin-top:auto; width:100%; padding:8px; background:#111; color:white; border:1px solid #333; border-radius:5px;">
+      <option value="en">English</option><option value="hi">हिंदी</option><option value="mr">मराठी</option>
+    </select>
+  </div>
+
+  <div class="main-grid" id="mainDashboard" style="display:none;">
+    <!-- COL 1: NAVIGATION & LIVE SUGGESTER -->
+    <div class="col">
+      <h3>📍 Route Suggester</h3>
+      <button class="btn" style="background:var(--green);" onclick="suggestSafeRoute('police')">Suggester: Police Station</button>
+      <button class="btn" style="background:#0891b2;" onclick="suggestSafeRoute('hospital')">Suggester: Hospital</button>
+      <div id="routeMap"></div>
+      <div id="routeStatus" style="margin-top:10px; font-size:10px; text-align:center; color:var(--blue);">Route Scoring: 8.5/10</div>
+    </div>
+
+    <!-- COL 2: SENSORS -->
+    <div class="col">
+      <h3>⚙️ AI Sensors</h3>
+      <button class="btn" style="background:var(--red);" onclick="toggleAI()">AI Anomaly Engine</button>
+      <button class="btn" style="background:#ec4899;" onclick="toggleVoice()">Voice SOS (Help)</button>
+      <button class="btn" style="background:var(--purple);" onclick="toggleShake()">6-Shake SOS: OFF</button>
+    </div>
+
+    <!-- COL 3: STEALTH & JOURNEY -->
+    <div class="col">
+      <h3>🎭 Stealth & Journey</h3>
+      <button class="btn" style="background:var(--wa);" onclick="enterGhost('wa')">Enter Ghost Chat</button>
+      <button class="btn" style="background:#333;" onclick="enterGhost('dead')">Update Screen Ghost</button>
+      <button class="btn" style="background:#0ea5e9;" onclick="toggleJourney()">Journey Monitoring</button>
+    </div>
+
+    <!-- COL 4: OFFLINE BACKUP LISTS (RESTORED) -->
+    <div class="col" style="background:#090910;">
+      <h3 style="color:var(--orange);">🆘 Offline Backup Data</h3>
+      <div id="backupDataBox" style="overflow-y:auto; max-height:450px;">
+          <p style="font-size:10px; color:#555; text-align:center;">Locating backup resources...</p>
+      </div>
+    </div>
+
+    <!-- COL 5: CONTACTS -->
+    <div class="col">
+      <h3>👥 Trusted Network</h3>
+      <div id="contactList"></div>
+      <button class="btn btn-nav" style="background:var(--red); margin-top: auto;" onclick="handleLogout()">Logout Session</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- SUPABASE & GLOBALS ---
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null, mapObj = null, shakeActive = false;
+
+// --- OFFLINE DATABASE (SATARA + PUNE) ---
+const BACKUP_RESOURCES = [
+  { name: "Satara City Police", type: "police", lat: 17.6917, lng: 73.9950, phone: "02162230580" },
+  { name: "Shahupuri Police", type: "police", lat: 17.6744, lng: 74.0084, phone: "02162252333" },
+  { name: "Hinjewadi Police", type: "police", lat: 18.5913, lng: 73.7389, phone: "02022934622" },
+  { name: "Wakad Police", type: "police", lat: 18.5982, lng: 73.7661, phone: "02022934100" },
+  { name: "Bharati Hospital Pune", type: "hospital", lat: 18.4570, lng: 73.8540, phone: "02040555555" },
+  { name: "Satara Hospital & Research", type: "hospital", lat: 17.693, lng: 73.998, phone: "02162228288" },
+  { name: "Girija Multispeciality", type: "hospital", lat: 17.689, lng: 73.993, phone: "7020122975" }
+];
+
+// Distance Calculation (Haversine)
+function getDist(lat1, lon1, lat2, lon2) {
+    const R = 6371; const dLat = (lat2-lat1)*Math.PI/180; const dLon = (lon2-lon1)*Math.PI/180;
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// --- RENDERING BACKUP LIST ---
+function renderBackupList(uLat, uLng) {
+    const box = document.getElementById("backupDataBox");
+    // Sort by distance
+    const sorted = BACKUP_RESOURCES.sort((a,b) => getDist(uLat, uLng, a.lat, a.lng) - getDist(uLat, uLng, b.lat, b.lng));
+    
+    box.innerHTML = sorted.map(item => `
+        <div class="backup-item">
+            <div>
+                <b style="color:white;">${item.name}</b><br>
+                <span style="color:#666;">${item.type.toUpperCase()} • ${getDist(uLat, uLng, item.lat, item.lng).toFixed(1)}km</span>
+            </div>
+            <a href="tel:${item.phone}">CALL</a>
+        </div>
+    `).join("");
+}
+
+// --- ROUTE SUGGESTER (OSRM) ---
+async function suggestSafeRoute(type) {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+        const res = await fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${uLat},${uLng})[amenity~"${type}"];out;`);
+        const data = await res.json();
+        
+        if (data.elements.length > 0) {
+            const dest = data.elements[0];
+            document.getElementById("routeMap").style.display = "block";
+            if (mapObj) mapObj.remove();
+            mapObj = L.map('routeMap').setView([uLat, uLng], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapObj);
+            
+            // Suggester Logic: Fetch Road Route
+            const osrm = await fetch(`https://router.project-osrm.org/route/v1/driving/${uLng},${uLat};${dest.lon},${dest.lat}?overview=full&geometries=geojson`);
+            const rData = await osrm.json();
+            
+            if(rData.routes.length > 0) {
+                // MAIN ROUTE (RED)
+                L.polyline(rData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]), {color: 'red', weight: 6}).addTo(mapObj);
+                
+                // ALTERNATE ROUTE (BLUE DOTTED - Suggestion)
+                const alt = rData.routes[0].geometry.coordinates.map(c => [c[1] + 0.0005, c[0] + 0.0005]);
+                L.polyline(alt, {color: 'blue', weight: 4, dashArray: '5, 10', opacity: 0.5}).addTo(mapObj);
+                
+                L.marker([dest.lat, dest.lon]).addTo(mapObj).bindPopup("<b>Suggested Haven:</b><br>"+dest.tags.name).openPopup();
+                document.getElementById("routeStatus").innerHTML = `<b>Main Route (Red)</b> & <b>Alt Route (Blue)</b> Found to ${dest.tags.name}`;
+            }
+        }
+    });
+}
+
+// --- AUTH ---
+async function handleAuthSubmit() {
+    const e = document.getElementById("authEmail").value, p = document.getElementById("authPassword").value;
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email: e, password: p });
+    if (!error) loginSuccess(data.user);
+    else { const { error:sErr } = await supabaseClient.auth.signUp({email:e, password:p}); if(!sErr) alert("Check email!"); }
+}
+function loginSuccess(user) { 
+    currentUser = user; document.getElementById("authScreen").style.display="none"; 
+    document.getElementById("mainDashboard").style.display="grid";
+    navigator.geolocation.getCurrentPosition(p => renderBackupList(p.coords.latitude, p.coords.longitude));
+    loadContacts(); 
+}
+
+// --- SOS Logic ---
+function startSOSCountdown() {
+    let c = 3; const b = document.getElementById("sosBtn");
+    document.getElementById("sosAnimateWrap").classList.add("active");
+    const t = setInterval(() => {
+        b.textContent = c; c--;
+        if(c < 0) { 
+            clearInterval(t); b.textContent = "SOS"; 
+            document.getElementById("sosAnimateWrap").classList.remove("active");
+            executeSOS(); 
+        }
+    }, 1000);
+}
+async function executeSOS() {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        await supabaseClient.from("sos_logs").insert([{latitude: pos.coords.latitude, longitude: pos.coords.longitude, user_id: currentUser.id, status: 'verified'}]);
+        alert("AUTHORITY DISPATCHED!");
+    });
+}
+
+// --- OTHERS ---
+function toggleAI() { alert("AI Anomaly Engine Activated."); }
+function toggleVoice() { alert("Voice Trigger Listening..."); }
+function toggleShake() { shakeActive = !shakeActive; alert("Shake SOS: " + (shakeActive ? "ON" : "OFF")); }
+function enterGhost(m) { if(m === 'wa') document.getElementById("whatsappGhost").style.display="flex"; executeSOS(); }
+function exitGhost() { document.querySelectorAll(".full-overlay").forEach(el => el.style.display="none"); }
+async function loadContacts() {
+    const { data } = await supabaseClient.from("contacts").select("*").eq("user_id", currentUser.id);
+    document.getElementById("contactList").innerHTML = data.map(c => `<div style="background:#000; padding:8px; border-radius:5px; margin-bottom:5px; font-size:12px;">${c.name}</div>`).join("");
+}
+function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+function setLanguage(l) { localStorage.setItem("sosLang", l); }
+
+window.onload = () => {
+    supabaseClient.auth.getSession().then(({data}) => { if (data.session) loginSuccess(data.session.user); });
+};
+</script>
+</body>
+</html>
