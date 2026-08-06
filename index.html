@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PocketGuardian AI Pro - Tactical Elite</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#c0154a">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0a0a0f;
+  color: #f1f1f1;
+  font-family: 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+h1 { color: #ff3b5c; margin: 20px 0 5px; font-size: 26px; letter-spacing: 1px; }
+.pro-tag {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #4ade80;
+  letter-spacing: 3px;
+  border: 1px solid #234d33;
+  padding: 3px 10px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+.subtitle { color: #999; font-size: 13px; margin-bottom: 10px; }
+.shield-status {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  margin-bottom: 18px;
+  cursor: pointer;
+  user-select: none;
+}
+.shield-status.armed { background: rgba(74,222,128,0.12); color: #4ade80; border: 1px solid #234d33; }
+.shield-status.disarmed { background: rgba(255,59,92,0.12); color: #ff3b5c; border: 1px solid #4d2330; }
+.sos-btn {
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, #ff3b5c, #b8002e);
+  border: none; color: white; font-size: 28px; font-weight: bold;
+  box-shadow: 0 0 30px rgba(255,59,92,0.6); cursor: pointer; transition: transform 0.15s;
+}
+.sos-btn:active { transform: scale(0.95); }
+.status { margin-top: 20px; font-size: 14px; color: #4ade80; min-height: 20px; text-align: center; }
+.section { width: 100%; max-width: 420px; background: #16161f; border-radius: 14px; padding: 18px; margin-top: 20px; }
+.section h3 { font-size: 14px; color: #ff3b5c; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }
+.section h3 .icon { margin-right: 6px; }
+input, select.field {
+  width: 100%; padding: 10px; margin-bottom: 8px; border-radius: 8px;
+  border: 1px solid #333; background: #0a0a0f; color: white; font-size: 14px;
+}
+.add-btn {
+  width: 100%; padding: 10px; background: #ff3b5c; border: none; border-radius: 8px;
+  color: white; font-weight: bold; cursor: pointer; margin-top: 5px;
+}
+.btn-row { display: flex; gap: 8px; }
+.btn-row .add-btn { margin-top: 8px; }
+.tool-btn {
+  width: 100%; padding: 12px; border: none; border-radius: 8px; color: white;
+  font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.tool-btn .state { font-size: 11px; opacity: 0.85; font-weight: normal; }
+.contact-item, .police-item, .feed-item {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #0a0a0f; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 14px;
+}
+.del-btn { background: none; border: none; color: #ff3b5c; cursor: pointer; font-size: 16px; }
+.police-item a { color: #4ade80; text-decoration: none; }
+.lang-selector {
+  position: fixed; top: 14px; right: 14px; background: #16161f; color: white;
+  border: 1px solid #333; border-radius: 8px; padding: 6px 8px; font-size: 13px; z-index: 5;
+}
+.fake-call-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: linear-gradient(180deg, #1a2a3a, #0a0a0f 60%); z-index: 9999;
+  flex-direction: column; justify-content: space-between; align-items: center;
+  padding: 60px 20px 50px; animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.call-top { display: flex; flex-direction: column; align-items: center; margin-top: 40px; }
+.caller-avatar {
+  width: 110px; height: 110px; border-radius: 50%; background: #2a2a3a;
+  display: flex; align-items: center; justify-content: center; font-size: 50px;
+  margin-bottom: 20px; animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.15); }
+  70% { box-shadow: 0 0 0 25px rgba(255,255,255,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+}
+.caller-name { font-size: 28px; font-weight: 600; color: white; margin-bottom: 8px; }
+.call-status { font-size: 15px; color: #999; }
+.call-actions { display: flex; justify-content: space-between; width: 100%; max-width: 320px; }
+.call-btn-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.call-btn-wrap span { font-size: 13px; color: #ccc; }
+.call-action-btn { width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 26px; cursor: pointer; color: white; }
+.call-action-btn.decline { background: #ff3b30; transform: rotate(135deg); }
+.call-action-btn.accept { background: #34c759; }
+#mainAppScreen { display: none; flex-direction: column; align-items: center; width: 100%; }
+.skeleton-item { background: #0a0a0f; border-radius: 8px; margin-bottom: 8px; padding: 10px 12px; height: 40px; display: flex; align-items: center; }
+.skeleton-box { height: 14px; border-radius: 4px; background: linear-gradient(90deg, #1a1a22 25%, #2a2a35 50%, #1a1a22 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* --- Safety Score gauge --- */
+.score-wrap { display: flex; align-items: center; gap: 14px; }
+.score-num { font-size: 34px; font-weight: bold; font-family: 'Courier New', monospace; }
+.score-num.good { color: #4ade80; }
+.score-num.mid { color: #ffb84d; }
+.score-num.low { color: #ff3b5c; }
+.score-bar-track { flex: 1; height: 8px; background: #0a0a0f; border-radius: 4px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.score-label { font-size: 12px; color: #999; margin-top: 6px; }
+
+/* --- Anomaly / Voice banners --- */
+.anomaly-banner {
+  display: none; background: #3a0a10; color: #ff8a9a; border: 1px solid #ff3b5c;
+  padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; text-align: center;
+}
+.mic-indicator { display: none; align-items: center; gap: 8px; font-size: 12px; color: #4ade80; margin-top: 8px; }
+.mic-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; animation: micPulse 1s infinite; }
+@keyframes micPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* --- Journey progress --- */
+.journey-progress { display: none; margin-top: 10px; }
+.journey-bar-track { height: 8px; background: #0a0a0f; border-radius: 4px; overflow: hidden; }
+.journey-bar-fill { height: 100%; background: #3b82f6; width: 0%; transition: width 0.4s ease; }
+.journey-meta { font-size: 12px; color: #999; margin-top: 6px; display: flex; justify-content: space-between; }
+
+.feed-item { flex-direction: column; align-items: flex-start; gap: 3px; }
+.feed-item .feed-title { font-size: 13px; color: #f1f1f1; font-weight: bold; }
+.feed-item .feed-meta { font-size: 11px; color: #777; }
+</style>
+</head>
+<body>
+
+<!-- ===================== AUTH ===================== -->
+<div id="authScreen" style="width:100%; max-width:420px; padding-top:50px; display:flex; flex-direction:column; align-items:center;">
+  <div class="pro-tag">PG AI PRO</div>
+  <h1>🛡️ PocketGuardian AI</h1>
+  <div class="subtitle" style="margin-bottom:30px;">Sign in to access your tactical safety dashboard</div>
+  <div class="section" style="width:100%;">
+    <h3 id="authFormTitle">Login Control</h3>
+    <input type="email" id="authEmail" placeholder="Email">
+    <input type="password" id="authPassword" placeholder="Password">
+    <div id="termsCheckWrap" style="display:none; align-items:flex-start; gap:8px; margin:10px 0; font-size:12px; color:#999;">
+      <input type="checkbox" id="agreeTerms" style="width:auto; margin-top:2px;">
+      <label for="agreeTerms">I agree to the <a href="#" onclick="openLegalScreen(); return false;" style="color:#4ade80;">Terms & Privacy Policy</a></label>
+    </div>
+    <button class="add-btn" onclick="handleAuthSubmit()" id="authSubmitBtn">Enter Dashboard</button>
+    <div id="authError" style="color:#ff6b6b; font-size:13px; margin-top:8px;"></div>
+    <div style="text-align:center; margin-top:14px; font-size:13px; color:#999;">
+      <span id="authToggleText">Don't have an account?</span>
+      <a href="#" onclick="toggleAuthMode(); return false;" style="color:#4ade80; font-weight:bold;" id="authToggleLink">Sign Up</a>
+    </div>
+    <div style="text-align:center; margin-top:8px; font-size:13px;" id="forgotPasswordWrap">
+      <a href="#" onclick="handleForgotPassword(); return false;" style="color:#999;">Forgot password?</a>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== RESET PASSWORD ===================== -->
+<div id="resetPasswordScreen" style="display:none; width:100%; max-width:420px; padding-top:60px; flex-direction:column; align-items:center;">
+  <h1>🔑 Reset Password</h1>
+  <div class="subtitle" style="margin-bottom:30px;">Enter your new password below</div>
+  <div class="section" style="width:100%;">
+    <input type="password" id="newPassword" placeholder="New password (min 6 characters)">
+    <button class="add-btn" onclick="handleUpdatePassword()">Update Password</button>
+    <div id="resetPasswordError" style="color:#ff6b6b; font-size:13px; margin-top:8px;"></div>
+    <div id="resetPasswordSuccess" style="color:#4ade80; font-size:13px; margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- ===================== LEGAL ===================== -->
+<div id="legalScreen" style="display:none; width:100%; max-width:600px; padding:30px 20px; flex-direction:column;">
+  <button onclick="closeLegalScreen()" style="align-self:flex-start; background:#16161f; color:white; border:1px solid #333; border-radius:8px; padding:8px 16px; margin-bottom:20px; cursor:pointer;">← Back</button>
+  <h1 style="font-size:24px;">Privacy Policy & Terms of Use</h1>
+  <div class="subtitle" style="margin-bottom:20px;">Last updated: August 2026</div>
+  <div class="section" style="width:100%;">
+    <h3>1. What We Collect</h3>
+    <p style="font-size:13px; color:#ccc; line-height:1.6; margin-bottom:16px;">We collect your email (login), emergency contact details, live location during SOS/tracking, and — only if you enable them — voice audio for Voice SOS detection, motion data for Shake/Anomaly detection, and a paired wearable's connection state. Nothing is captured in the background without your action.</p>
+    <h3>2. How We Use Your Data</h3>
+    <p style="font-size:13px; color:#ccc; line-height:1.6; margin-bottom:16px;">Data powers safety features only: alerting your contacts, journey check-ins, tactical routing, and your safety score. We do not sell or share data with advertisers.</p>
+    <h3>3. Data Security</h3>
+    <p style="font-size:13px; color:#ccc; line-height:1.6; margin-bottom:16px;">Row-Level Security ensures only you can access your own contacts, logs, and journeys. Passwords are hashed and never stored in plain text.</p>
+    <h3>4. Your Rights</h3>
+    <p style="font-size:13px; color:#ccc; line-height:1.6; margin-bottom:16px;">You can update or delete contacts, disable sensors, and unpair a wearable at any time. Contact the developer via GitHub for full account deletion.</p>
+    <h3>5. Terms of Use</h3>
+    <p style="font-size:13px; color:#ccc; line-height:1.6; margin-bottom:16px;">Built for IEEE WIE "Innovate 4 Impact" Hackathon 2026 on a best-effort basis. Always call official emergency services directly when possible — this app is a supplement, not a replacement.</p>
+    <h3>6. Third-Party Services</h3>
+    <p style="font-size:13px; color:#ccc; line-height:1.6;">Uses Supabase (auth/data) and Vercel (hosting). SMS/WhatsApp features rely on your device's native apps. Voice SOS uses your browser's on-device speech recognition where available.</p>
+  </div>
+</div>
+
+<!-- ===================== ONBOARDING ===================== -->
+<div id="onboardingScreen" style="display:none; width:100%; max-width:420px; padding-top:50px; flex-direction:column; align-items:center;">
+  <div class="section" style="width:100%; text-align:center;">
+    <div id="onboardingIcon" style="font-size:56px; margin-bottom:10px;">🛡️</div>
+    <h3 id="onboardingTitle" style="font-size:20px;">Welcome to PocketGuardian AI Pro</h3>
+    <p id="onboardingText" style="font-size:14px; color:#ccc; line-height:1.6; margin:14px 0 20px;">Your tactical safety companion — SOS, AI anomaly sensing, voice triggers, journey monitoring, and wearable pairing, all in one tap.</p>
+    <div style="display:flex; justify-content:center; gap:6px; margin-bottom:20px;">
+      <div class="onb-dot" data-step="0" style="width:8px; height:8px; border-radius:50%; background:#ff3b5c;"></div>
+      <div class="onb-dot" data-step="1" style="width:8px; height:8px; border-radius:50%; background:#333;"></div>
+      <div class="onb-dot" data-step="2" style="width:8px; height:8px; border-radius:50%; background:#333;"></div>
+      <div class="onb-dot" data-step="3" style="width:8px; height:8px; border-radius:50%; background:#333;"></div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button onclick="skipOnboarding()" style="flex:1; padding:10px; background:#333; border:none; border-radius:8px; color:white; cursor:pointer;">Skip</button>
+      <button onclick="nextOnboardingStep()" id="onboardingNextBtn" class="add-btn" style="flex:1; margin-top:0;">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== LIVE TRACK VIEWER ===================== -->
+<div id="trackViewerScreen" style="display:none; width:100%; max-width:420px; text-align:center; padding-top:40px;">
+  <h1>📍 Live Location</h1>
+  <div class="subtitle" id="trackSubtitle">Waiting for location update...</div>
+  <div id="trackMapWrap" style="margin-top:20px; border-radius:14px; overflow:hidden; display:none;">
+    <iframe id="trackMapFrame" width="100%" height="300" style="border:0;" loading="lazy"></iframe>
+  </div>
+  <div id="trackLastUpdated" style="margin-top:14px; font-size:13px; color:#999;"></div>
+  <a id="trackOpenMaps" href="#" target="_blank" style="display:none; margin-top:16px; color:#4ade80; text-decoration:none; font-weight:bold;">Open in Google Maps →</a>
+</div>
+
+<!-- ===================== MAIN APP ===================== -->
+<div id="mainAppScreen">
+  <select class="lang-selector" id="langSelector" onchange="setLanguage(this.value)">
+    <option value="en">English</option>
+    <option value="hi">हिंदी</option>
+    <option value="mr">मराठी</option>
+    <option value="gu">ગુજરાતી</option>
+    <option value="ur">اردو</option>
+    <option value="bn">বাংলা</option>
+    <option value="ta">தமிழ்</option>
+    <option value="te">తెలుగు</option>
+    <option value="kn">ಕನ್ನಡ</option>
+  </select>
+  <button onclick="handleLogout()" style="position:fixed; top:14px; left:14px; background:#16161f; color:#ff6b6b; border:1px solid #333; border-radius:8px; padding:6px 12px; font-size:12px; z-index:10;">Logout</button>
+
+  <div class="pro-tag">PG AI PRO</div>
+  <h1>🛡️ <span id="txt-title">PocketGuardian AI</span></h1>
+  <div class="subtitle" id="txt-subtitle">SOS Safety — Tap the button in an emergency</div>
+  <div class="shield-status armed" id="shieldStatus" onclick="toggleShield()">SHIELD: ARMED</div>
+
+  <div id="offlineBanner" style="display:none; background:#3a2a0a; color:#ffb84d; padding:8px 14px; border-radius:8px; font-size:12px; margin-bottom:10px;">📡 You're offline — SOS will still work using saved contacts</div>
+  <div class="anomaly-banner" id="anomalyBanner">⚠️ Anomaly detected — unusual motion pattern. Tap SOS if you need help.</div>
+
+  <button class="sos-btn" id="sosBtn" onclick="startSOSCountdown()">SOS</button>
+  <div class="status" id="status"></div>
+  <button id="cancelSosBtn" onclick="cancelSOSCountdown()" style="display:none; margin-top:10px; padding:10px 20px; background:#333; border:none; border-radius:8px; color:white; font-weight:bold; cursor:pointer;">Cancel</button>
+  <button class="fake-call-btn add-btn" style="margin-top:14px;" onclick="fakeCall()">📞 <span id="txt-fakecall">Emergency Call</span></button>
+
+  <!-- Safety Score -->
+  <div class="section">
+    <h3><span class="icon">🧭</span>Safety Score</h3>
+    <div class="score-wrap">
+      <div class="score-num good" id="safetyScoreNum">8.5</div>
+      <div style="flex:1;">
+        <div class="score-bar-track"><div class="score-bar-fill" id="safetyScoreBar" style="width:85%; background:#4ade80;"></div></div>
+        <div class="score-label" id="safetyScoreLabel">Based on time of day, movement, and connectivity</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tactical Routing -->
+  <div class="section">
+    <h3><span class="icon">📍</span>Tactical Routing</h3>
+    <button class="tool-btn" style="background:#1e293b;" onclick="routeToNearest('police station')">🚓 Nearest Police Station</button>
+    <button class="tool-btn" style="background:#1e293b;" onclick="routeToNearest('hospital')">🏥 Nearest Hospital</button>
+    <div id="routingInfo" style="margin-top:8px; font-size:12px; color:#999;"></div>
+  </div>
+
+  <!-- AI Sensors & Voice -->
+  <div class="section">
+    <h3><span class="icon">⚙️</span>AI Sensors & Voice</h3>
+    <button class="tool-btn" style="background:#334155;" id="watchBtn" onclick="pairSmartwatch()">
+      ⌚ Pair Smartwatch <span class="state" id="watchState">Not paired</span>
+    </button>
+    <button class="tool-btn" style="background:#7c3aed;" id="anomalyBtn" onclick="toggleAnomalyEngine()">
+      🧠 AI Anomaly Engine <span class="state" id="anomalyState">OFF</span>
+    </button>
+    <button class="tool-btn" style="background:#0ea5e9;" id="voiceBtn" onclick="toggleVoiceSOS()">
+      🎙️ Voice SOS (say "help") <span class="state" id="voiceState">OFF</span>
+    </button>
+    <div class="mic-indicator" id="micIndicator"><span class="mic-dot"></span> Listening for trigger word…</div>
+    <button class="tool-btn" style="background:#a855f7;" onclick="enableShakeToSOS()" id="shakeBtn">
+      🤳 <span id="txt-shake">Enable Shake to SOS</span> <span class="state" id="shakeInfo"></span>
+    </button>
+  </div>
+
+  <!-- Stealth Controls -->
+  <div class="section">
+    <h3><span class="icon">🎭</span>Stealth Controls</h3>
+    <button class="tool-btn" style="background:#25D366;" onclick="sendViaWhatsApp()">📱 WhatsApp Ghost Chat</button>
+    <div id="whatsappInfo" style="margin-top:4px; font-size:12px; color:#25D366;"></div>
+    <button class="tool-btn" style="background:#3b82f6;" onclick="toggleLiveShare()" id="liveShareBtn">📍 Share Live Location</button>
+    <div id="liveShareInfo" style="margin-top:4px; font-size:12px; color:#4ade80; word-break:break-all;"></div>
+    <div id="qrCodeBox" style="display:none; background:white; padding:14px; border-radius:10px; margin-top:8px; text-align:center;">
+      <div id="qrCodeCanvas" style="display:inline-block;"></div>
+      <div style="color:#333; font-size:12px; margin-top:8px;">Scan to open live location link</div>
+    </div>
+    <button class="tool-btn" style="background:#0891b2;" id="journeyBtn" onclick="toggleJourneyMonitoring()">
+      🧭 Journey Monitoring <span class="state" id="journeyState">OFF</span>
+    </button>
+    <div class="journey-progress" id="journeyProgress">
+      <div class="journey-bar-track"><div class="journey-bar-fill" id="journeyBar"></div></div>
+      <div class="journey-meta"><span id="journeyElapsed">0 min</span><span id="journeyEta">ETA --</span></div>
+    </div>
+    <button class="tool-btn" style="background:#ff9d4d;" onclick="toggleRecording()" id="recordBtn">🎥 Silent Video Evidence</button>
+    <div id="recordingInfo" style="margin-top:6px; font-size:12px; color:#ff9d4d;"></div>
+    <video id="evidencePreview" autoplay muted playsinline style="display:none; width:100%; border-radius:10px; margin-top:10px; background:#000;"></video>
+    <button class="add-btn" style="background:#34c759; margin-top:10px;" onclick="imSafe()" id="txt-imsafe">✅ I'm Safe</button>
+    <button class="add-btn" style="background:#1e293b; margin-top:10px; display:none;" onclick="installApp()" id="installBtn">⬇️ Install App on Home Screen</button>
+    <div id="installInfo" style="margin-top:8px; font-size:13px; color:#94a3b8;"></div>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLScmq45L56k-Y52XBObnch3ymWExjNiYwMUUFNHz_ZKrlVH5Og/viewform" target="_blank" style="text-decoration:none;">
+      <button class="add-btn" style="background:#6366f1; margin-top:10px;">💬 Give Feedback</button>
+    </a>
+  </div>
+
+  <!-- Authority Tactical Feed -->
+  <div class="section">
+    <h3><span class="icon">🚨</span>Authority Tactical Feed</h3>
+    <div id="feedList">
+      <div class="feed-item"><span class="feed-title">System armed and monitoring</span><span class="feed-meta">Just now</span></div>
+    </div>
+  </div>
+
+  <!-- Trusted Contacts -->
+  <div class="section">
+    <h3 id="txt-contacts-h">Trusted & Backup Contacts</h3>
+    <input type="text" id="contactName" placeholder="Name">
+    <input type="tel" id="contactPhone" placeholder="Phone (with country code, e.g. 91XXXXXXXXXX)">
+    <button class="add-btn" onclick="addContact()" id="txt-addbtn">+ Add Contact</button>
+    <div id="contactList" style="margin-top:12px;"></div>
+    <div id="offlineBackupList" style="margin-top:10px; font-size:12px; color:#777;"></div>
+  </div>
+
+  <!-- Nearby Police (static quick-dial) -->
+  <div class="section">
+    <h3 id="txt-police-h">Nearby Police Stations</h3>
+    <div id="policeList"></div>
+  </div>
+</div>
+
+<!-- Fake Incoming Call Screen -->
+<div id="fakeCallScreen" class="fake-call-screen">
+  <div class="call-top">
+    <div class="caller-avatar">👤</div>
+    <div class="caller-name" id="callerName">Mom ❤️</div>
+    <div class="call-status" id="callStatusText">Incoming call...</div>
+  </div>
+  <div class="call-actions">
+    <div class="call-btn-wrap"><button class="call-action-btn decline" onclick="endFakeCall()">📞</button><span>Decline</span></div>
+    <div class="call-btn-wrap"><button class="call-action-btn accept" onclick="acceptFakeCall()">📞</button><span>Accept</span></div>
+  </div>
+</div>
+
+<script>
+// ---- SUPABASE CONFIG: replace these two lines with your own ----
+const SUPABASE_URL = "https://xccnzedcdeecfmhxiwxs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rj_HX1xUGpa-tzhsIPWeqw_6IZx0fEy";
+let supabaseClient = null;
+try { supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.error("Supabase failed to load:", e); }
+
+let currentUser = null;
+let isSharing = false;
+
+// Static police station list (edit with your local area stations)
+const policeStations = [
+  { name: "Satara City Police Station", phone: "100" },
+  { name: "MIDC Police Station, Satara", phone: "100" },
+  { name: "Women Helpline", phone: "1091" }
+];
+
+// ---- MULTI-LANGUAGE SUPPORT (9 languages) ----
+const translations = {
+  en: { title:"PocketGuardian AI", subtitle:"SOS Safety — Tap the button in an emergency", fakecall:"Emergency Call", contactsH:"Trusted & Backup Contacts", addbtn:"+ Add Contact", policeH:"Nearby Police Stations", namePh:"Name", phonePh:"Phone (with country code, e.g. 91XXXXXXXXXX)", gettingLocation:"Getting your location...", noGeo:"Geolocation not supported on this device.", noContacts:"No emergency contacts added yet!", locCaptured:"Location captured. Opening SMS...", locDenied:"Location access denied. Enable location permission.", fillFields:"Fill both fields", smsMessage:"EMERGENCY! I need help. My location:", call:"Call", imSafeBtn:"✅ I'm Safe", imSafeMsg:"I am safe now. No need to worry. 🙂", shareStart:"📍 Share Live Location", shareStop:"⏹️ Stop Sharing Location", shareStarted:"Live location sharing started. Link copied — send it to your contact:", shareStopped:"Live location sharing stopped." },
+  hi: { title:"PocketGuardian AI", subtitle:"एसओएस सुरक्षा — आपातकाल में बटन दबाएं", fakecall:"आपातकालीन कॉल", contactsH:"आपातकालीन संपर्क", addbtn:"+ संपर्क जोड़ें", policeH:"नजदीकी पुलिस स्टेशन", namePh:"नाम", phonePh:"फ़ोन नंबर (देश कोड सहित)", gettingLocation:"आपका स्थान प्राप्त किया जा रहा है...", noGeo:"इस डिवाइस पर लोकेशन सुविधा उपलब्ध नहीं है।", noContacts:"अभी तक कोई आपातकालीन संपर्क नहीं जोड़ा गया!", locCaptured:"स्थान प्राप्त हुआ। एसएमएस खोला जा रहा है...", locDenied:"स्थान की अनुमति नहीं मिली।", fillFields:"कृपया दोनों फ़ील्ड भरें", smsMessage:"आपातकाल! मुझे मदद चाहिए। मेरा स्थान:", call:"कॉल करें", imSafeBtn:"✅ मैं सुरक्षित हूं", imSafeMsg:"मैं अभी सुरक्षित हूं। 🙂", shareStart:"📍 लाइव लोकेशन शेयर करें", shareStop:"⏹️ शेयरिंग बंद करें", shareStarted:"लाइव लोकेशन शेयरिंग शुरू हुई:", shareStopped:"लाइव लोकेशन शेयरिंग बंद हो गई।" },
+  mr: { title:"PocketGuardian AI", subtitle:"एसओएस सुरक्षा — आणीबाणीत बटण दाबा", fakecall:"आणीबाणी कॉल", contactsH:"आणीबाणी संपर्क", addbtn:"+ संपर्क जोडा", policeH:"जवळचे पोलीस स्टेशन", namePh:"नाव", phonePh:"फोन नंबर (देश कोडसह)", gettingLocation:"तुमचे स्थान मिळवत आहे...", noGeo:"या डिव्हाइसवर लोकेशन सुविधा उपलब्ध नाही.", noContacts:"अद्याप कोणताही संपर्क जोडलेला नाही!", locCaptured:"स्थान मिळाले. एसएमएस उघडत आहे...", locDenied:"स्थानाची परवानगी नाकारली.", fillFields:"कृपया दोन्ही रकाने भरा", smsMessage:"आणीबाणी! मला मदत हवी आहे. माझे स्थान:", call:"कॉल करा", imSafeBtn:"✅ मी सुरक्षित आहे", imSafeMsg:"मी आता सुरक्षित आहे. 🙂", shareStart:"📍 लाइव्ह लोकेशन शेअर करा", shareStop:"⏹️ शेअरिंग थांबवा", shareStarted:"लाइव्ह लोकेशन शेअरिंग सुरू झाले:", shareStopped:"लाइव्ह लोकेशन शेअरिंग थांबले." },
+  gu: { title:"PocketGuardian AI", subtitle:"એસઓએસ સુરક્ષા — કટોકટીમાં બટન દબાવો", fakecall:"કટોકટી કૉલ", contactsH:"કટોકટી સંપર્કો", addbtn:"+ સંપર્ક ઉમેરો", policeH:"નજીકના પોલીસ સ્ટેશન", namePh:"નામ", phonePh:"ફોન નંબર (દેશ કોડ સાથે)", gettingLocation:"તમારું સ્થાન મેળવી રહ્યા છીએ...", noGeo:"આ ડિવાઇસ પર લોકેશન સુવિધા ઉપલબ્ધ નથી.", noContacts:"હજુ સુધી કોઈ સંપર્ક ઉમેરાયો નથી!", locCaptured:"સ્થાન મળ્યું. એસએમએસ ખોલી રહ્યા છીએ...", locDenied:"સ્થાનની પરવાનગી નકારી.", fillFields:"કૃપા કરી બંને ફીલ્ડ ભરો", smsMessage:"કટોકટી! મને મદદની જરૂર છે. મારું સ્થાન:", call:"કૉલ કરો", imSafeBtn:"✅ હું સુરક્ષિત છું", imSafeMsg:"હું હવે સુરક્ષિત છું. 🙂", shareStart:"📍 લાઇવ લોકેશન શેર કરો", shareStop:"⏹️ શેરિંગ બંધ કરો", shareStarted:"લાઇવ લોકેશન શેરિંગ શરૂ થયું:", shareStopped:"લાઇવ લોકેશન શેરિંગ બંધ થયું." },
+  ur: { title:"PocketGuardian AI", subtitle:"ایس او ایس حفاظت — ہنگامی صورت میں بٹن دبائیں", fakecall:"ہنگامی کال", contactsH:"ہنگامی رابطے", addbtn:"+ رابطہ شامل کریں", policeH:"قریبی پولیس اسٹیشن", namePh:"نام", phonePh:"فون نمبر (کنٹری کوڈ سمیت)", gettingLocation:"آپ کا مقام حاصل کیا جا رہا ہے...", noGeo:"اس ڈیوائس پر لوکیشن دستیاب نہیں۔", noContacts:"ابھی تک کوئی رابطہ شامل نہیں!", locCaptured:"مقام مل گیا۔ ایس ایم ایس کھولا جا رہا ہے...", locDenied:"مقام کی اجازت مسترد۔", fillFields:"براہ کرم دونوں خانے پُر کریں", smsMessage:"ہنگامی صورتحال! مجھے مدد کی ضرورت ہے۔ میرا مقام:", call:"کال کریں", imSafeBtn:"✅ میں محفوظ ہوں", imSafeMsg:"میں اب محفوظ ہوں۔ 🙂", shareStart:"📍 لائیو مقام شیئر کریں", shareStop:"⏹️ شیئرنگ بند کریں", shareStarted:"لائیو مقام شیئرنگ شروع:", shareStopped:"لائیو مقام شیئرنگ بند ہو گئی۔" },
+  bn: { title:"PocketGuardian AI", subtitle:"এসওএস নিরাপত্তা — জরুরি অবস্থায় বোতাম চাপুন", fakecall:"জরুরি কল", contactsH:"বিশ্বস্ত যোগাযোগ", addbtn:"+ যোগাযোগ যোগ করুন", policeH:"নিকটবর্তী থানা", namePh:"নাম", phonePh:"ফোন নম্বর (দেশের কোডসহ)", gettingLocation:"আপনার অবস্থান পাওয়া হচ্ছে...", noGeo:"এই ডিভাইসে লোকেশন সুবিধা নেই।", noContacts:"এখনো কোনো জরুরি যোগাযোগ যোগ করা হয়নি!", locCaptured:"অবস্থান পাওয়া গেছে। এসএমএস খোলা হচ্ছে...", locDenied:"লোকেশন অনুমতি প্রত্যাখ্যাত।", fillFields:"অনুগ্রহ করে উভয় ফিল্ড পূরণ করুন", smsMessage:"জরুরি অবস্থা! আমার সাহায্য দরকার। আমার অবস্থান:", call:"কল করুন", imSafeBtn:"✅ আমি নিরাপদ", imSafeMsg:"আমি এখন নিরাপদ আছি। 🙂", shareStart:"📍 লাইভ লোকেশন শেয়ার করুন", shareStop:"⏹️ শেয়ারিং বন্ধ করুন", shareStarted:"লাইভ লোকেশন শেয়ারিং শুরু হয়েছে:", shareStopped:"লাইভ লোকেশন শেয়ারিং বন্ধ হয়েছে।" },
+  ta: { title:"PocketGuardian AI", subtitle:"எஸ்ஓஎஸ் பாதுகாப்பு — அவசரத்தில் பொத்தானை அழுத்தவும்", fakecall:"அவசர அழைப்பு", contactsH:"நம்பகமான தொடர்புகள்", addbtn:"+ தொடர்பைச் சேர்க்க", policeH:"அருகிலுள்ள போலீஸ் நிலையம்", namePh:"பெயர்", phonePh:"தொலைபேசி (நாட்டு குறியீடுடன்)", gettingLocation:"உங்கள் இருப்பிடத்தைப் பெறுகிறது...", noGeo:"இந்த சாதனத்தில் லொகேஷன் இல்லை.", noContacts:"இன்னும் தொடர்பு எதுவும் சேர்க்கப்படவில்லை!", locCaptured:"இருப்பிடம் கிடைத்தது. எஸ்எம்எஸ் திறக்கிறது...", locDenied:"இருப்பிட அனுமதி மறுக்கப்பட்டது.", fillFields:"இரண்டு புலங்களையும் நிரப்பவும்", smsMessage:"அவசரநிலை! எனக்கு உதவி தேவை. என் இருப்பிடம்:", call:"அழைக்க", imSafeBtn:"✅ நான் பாதுகாப்பாக இருக்கிறேன்", imSafeMsg:"நான் இப்போது பாதுகாப்பாக இருக்கிறேன். 🙂", shareStart:"📍 நேரலை இருப்பிடத்தைப் பகிரவும்", shareStop:"⏹️ பகிர்வை நிறுத்து", shareStarted:"நேரலை இருப்பிடப் பகிர்வு தொடங்கியது:", shareStopped:"நேரலை இருப்பிடப் பகிர்வு நிறுத்தப்பட்டது." },
+  te: { title:"PocketGuardian AI", subtitle:"ఎస్ఓఎస్ భద్రత — అత్యవసర సమయంలో బటన్ నొక్కండి", fakecall:"అత్యవసర కాల్", contactsH:"నమ్మకమైన పరిచయాలు", addbtn:"+ పరిచయాన్ని జోడించండి", policeH:"సమీప పోలీస్ స్టేషన్", namePh:"పేరు", phonePh:"ఫోన్ నంబర్ (కంట్రీ కోడ్‌తో)", gettingLocation:"మీ లొకేషన్ పొందుతోంది...", noGeo:"ఈ పరికరంలో లొకేషన్ లేదు.", noContacts:"ఇంకా ఏ పరిచయం జోడించలేదు!", locCaptured:"లొకేషన్ దొరికింది. SMS తెరుస్తోంది...", locDenied:"లొకేషన్ అనుమతి తిరస్కరించబడింది.", fillFields:"దయచేసి రెండు ఫీల్డ్‌లను పూరించండి", smsMessage:"అత్యవసరం! నాకు సహాయం కావాలి. నా లొకేషన్:", call:"కాల్ చేయండి", imSafeBtn:"✅ నేను సురక్షితంగా ఉన్నాను", imSafeMsg:"నేను ఇప్పుడు సురక్షితంగా ఉన్నాను. 🙂", shareStart:"📍 లైవ్ లొకేషన్ షేర్ చేయండి", shareStop:"⏹️ షేరింగ్ ఆపండి", shareStarted:"లైవ్ లొకేషన్ షేరింగ్ ప్రారంభమైంది:", shareStopped:"లైవ్ లొకేషన్ షేరింగ్ ఆగింది." },
+  kn: { title:"PocketGuardian AI", subtitle:"ಎಸ್‌ಒಎಸ್ ಸುರಕ್ಷತೆ — ತುರ್ತು ಸಂದರ್ಭದಲ್ಲಿ ಬಟನ್ ಒತ್ತಿ", fakecall:"ತುರ್ತು ಕರೆ", contactsH:"ವಿಶ್ವಾಸಾರ್ಹ ಸಂಪರ್ಕಗಳು", addbtn:"+ ಸಂಪರ್ಕ ಸೇರಿಸಿ", policeH:"ಹತ್ತಿರದ ಪೊಲೀಸ್ ಠಾಣೆ", namePh:"ಹೆಸರು", phonePh:"ಫೋನ್ ನಂಬರ್ (ದೇಶದ ಕೋಡ್‌ನೊಂದಿಗೆ)", gettingLocation:"ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...", noGeo:"ಈ ಸಾಧನದಲ್ಲಿ ಲೊಕೇಶನ್ ಲಭ್ಯವಿಲ್ಲ.", noContacts:"ಇನ್ನೂ ಯಾವುದೇ ಸಂಪರ್ಕ ಸೇರಿಸಿಲ್ಲ!", locCaptured:"ಸ್ಥಳ ದೊರೆಯಿತು. SMS ತೆರೆಯಲಾಗುತ್ತಿದೆ...", locDenied:"ಸ್ಥಳ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ.", fillFields:"ದಯವಿಟ್ಟು ಎರಡೂ ಕ್ಷೇತ್ರಗಳನ್ನು ಭರ್ತಿ ಮಾಡಿ", smsMessage:"ತುರ್ತುಸ್ಥಿತಿ! ನನಗೆ ಸಹಾಯ ಬೇಕು. ನನ್ನ ಸ್ಥಳ:", call:"ಕರೆ ಮಾಡಿ", imSafeBtn:"✅ ನಾನು ಸುರಕ್ಷಿತ", imSafeMsg:"ನಾನು ಈಗ ಸುರಕ್ಷಿತವಾಗಿದ್ದೇನೆ. 🙂", shareStart:"📍 ಲೈವ್ ಸ್ಥಳ ಹಂಚಿಕೊಳ್ಳಿ", shareStop:"⏹️ ಹಂಚಿಕೆ ನಿಲ್ಲಿಸಿ", shareStarted:"ಲೈವ್ ಸ್ಥಳ ಹಂಚಿಕೆ ಪ್ರಾರಂಭವಾಗಿದೆ:", shareStopped:"ಲೈವ್ ಸ್ಥಳ ಹಂಚಿಕೆ ನಿಂತಿದೆ." }
+};
+let currentLang = localStorage.getItem("sosLang") || "en";
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem("sosLang", lang);
+  const t = translations[lang] || translations.en;
+  document.getElementById("txt-title").textContent = t.title;
+  document.getElementById("txt-subtitle").textContent = t.subtitle;
+  document.getElementById("txt-fakecall").textContent = t.fakecall;
+  document.getElementById("txt-contacts-h").textContent = t.contactsH;
+  document.getElementById("txt-addbtn").textContent = t.addbtn;
+  document.getElementById("txt-police-h").textContent = t.policeH;
+  document.getElementById("contactName").placeholder = t.namePh;
+  document.getElementById("contactPhone").placeholder = t.phonePh;
+  document.getElementById("langSelector").value = lang;
+  document.getElementById("liveShareBtn").textContent = isSharing ? t.shareStop : t.shareStart;
+  const mainScreen = document.getElementById("mainAppScreen");
+  if (lang === "ur") { mainScreen.setAttribute("dir", "rtl"); mainScreen.style.textAlign = "right"; }
+  else { mainScreen.setAttribute("dir", "ltr"); mainScreen.style.textAlign = "left"; }
+  renderPolice();
+}
+
+function renderPolice() {
+  const list = document.getElementById("policeList");
+  const t = translations[currentLang] || translations.en;
+  list.innerHTML = "";
+  policeStations.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "police-item";
+    div.innerHTML = `<span>${p.name}</span><a href="tel:${p.phone}">${t.call}</a>`;
+    list.appendChild(div);
+  });
+}
+
+function addFeedItem(title) {
+  const list = document.getElementById("feedList");
+  const div = document.createElement("div");
+  div.className = "feed-item";
+  div.innerHTML = `<span class="feed-title">${title}</span><span class="feed-meta">${new Date().toLocaleTimeString()}</span>`;
+  list.insertBefore(div, list.firstChild);
+  while (list.children.length > 8) list.removeChild(list.lastChild);
+}
+
+// ===================== AUTH =====================
+let authMode = "login";
+function toggleAuthMode() {
+  authMode = authMode === "login" ? "signup" : "login";
+  document.getElementById("authFormTitle").textContent = authMode === "login" ? "Login Control" : "Create Account";
+  document.getElementById("authSubmitBtn").textContent = authMode === "login" ? "Enter Dashboard" : "Sign Up";
+  document.getElementById("authToggleText").textContent = authMode === "login" ? "Don't have an account?" : "Already have an account?";
+  document.getElementById("authToggleLink").textContent = authMode === "login" ? "Sign Up" : "Login";
+  document.getElementById("termsCheckWrap").style.display = authMode === "signup" ? "flex" : "none";
+  document.getElementById("forgotPasswordWrap").style.display = authMode === "login" ? "block" : "none";
+  document.getElementById("authError").textContent = "";
+}
+
+async function handleAuthSubmit() {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+  const errEl = document.getElementById("authError");
+  errEl.textContent = "";
+  if (!email || !password) { errEl.textContent = "Enter email and password."; return; }
+  if (!supabaseClient) { errEl.textContent = "Service unavailable — check connection."; return; }
+
+  if (authMode === "signup") {
+    if (!document.getElementById("agreeTerms").checked) { errEl.textContent = "Please agree to the Terms & Privacy Policy."; return; }
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) { errEl.textContent = error.message; return; }
+    currentUser = data.user;
+    startApp();
+  } else {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) { errEl.textContent = error.message; return; }
+    currentUser = data.user;
+    startApp();
+  }
+}
+
+async function handleForgotPassword() {
+  const email = document.getElementById("authEmail").value.trim();
+  const errEl = document.getElementById("authError");
+  if (!email) { errEl.textContent = "Enter your email above first."; return; }
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+  errEl.style.color = "#4ade80";
+  errEl.textContent = error ? error.message : "Password reset email sent.";
+}
+
+async function handleUpdatePassword() {
+  const pw = document.getElementById("newPassword").value;
+  const errEl = document.getElementById("resetPasswordError");
+  const okEl = document.getElementById("resetPasswordSuccess");
+  errEl.textContent = ""; okEl.textContent = "";
+  if (!pw || pw.length < 6) { errEl.textContent = "Password must be at least 6 characters."; return; }
+  const { error } = await supabaseClient.auth.updateUser({ password: pw });
+  if (error) { errEl.textContent = error.message; return; }
+  okEl.textContent = "Password updated. Redirecting...";
+  setTimeout(() => { document.getElementById("resetPasswordScreen").style.display = "none"; document.getElementById("authScreen").style.display = "flex"; }, 1500);
+}
+
+function handleLogout() {
+  stopAllSensors();
+  supabaseClient.auth.signOut();
+  currentUser = null;
+  document.getElementById("mainAppScreen").style.display = "none";
+  document.getElementById("authScreen").style.display = "flex";
+}
+
+function openLegalScreen() { document.getElementById("authScreen").style.display = "none"; document.getElementById("legalScreen").style.display = "flex"; }
+function closeLegalScreen() { document.getElementById("legalScreen").style.display = "none"; document.getElementById("authScreen").style.display = "flex"; }
+
+function startApp() {
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("resetPasswordScreen").style.display = "none";
+  document.getElementById("mainAppScreen").style.display = "flex";
+  setLanguage(currentLang);
+  loadContacts();
+  computeSafetyScore();
+  addFeedItem("Signed in — shield armed and monitoring");
+  if (!localStorage.getItem("onboardingSeen")) {
+    document.getElementById("mainAppScreen").style.display = "none";
+    document.getElementById("onboardingScreen").style.display = "flex";
+  }
+  window.addEventListener("online", () => document.getElementById("offlineBanner").style.display = "none");
+  window.addEventListener("offline", () => document.getElementById("offlineBanner").style.display = "block");
+  if (!navigator.onLine) document.getElementById("offlineBanner").style.display = "block";
+}
+
+let onboardingStep = 0;
+const onboardingSteps = [
+  { icon: "🆘", title: "One-Tap SOS", text: "Tap SOS, confirm the 3-second countdown, and your location is sent to every trusted contact instantly." },
+  { icon: "🧠", title: "AI Sensors", text: "Enable the Anomaly Engine, Voice SOS, and Shake to SOS so help can trigger even when you can't reach your phone." },
+  { icon: "🧭", title: "Journey Monitoring", text: "Start a journey with an ETA — if you don't check in as safe by then, contacts are alerted automatically." },
+  { icon: "🎭", title: "Stealth Tools", text: "Fake Call and WhatsApp Ghost Chat help you exit uncomfortable situations discreetly." }
+];
+function renderOnboardingStep() {
+  const s = onboardingSteps[onboardingStep];
+  document.getElementById("onboardingIcon").textContent = s.icon;
+  document.getElementById("onboardingTitle").textContent = s.title;
+  document.getElementById("onboardingText").textContent = s.text;
+  document.querySelectorAll(".onb-dot").forEach((d, i) => d.style.background = i === onboardingStep ? "#ff3b5c" : "#333");
+  document.getElementById("onboardingNextBtn").textContent = onboardingStep === onboardingSteps.length - 1 ? "Get Started" : "Next";
+}
+function nextOnboardingStep() {
+  onboardingStep++;
+  if (onboardingStep >= onboardingSteps.length) { skipOnboarding(); return; }
+  renderOnboardingStep();
+}
+function skipOnboarding() {
+  localStorage.setItem("onboardingSeen", "1");
+  document.getElementById("onboardingScreen").style.display = "none";
+  document.getElementById("mainAppScreen").style.display = "flex";
+}
+
+// ===================== SHIELD STATUS =====================
+let shieldArmed = true;
+function toggleShield() {
+  shieldArmed = !shieldArmed;
+  const el = document.getElementById("shieldStatus");
+  el.className = "shield-status " + (shieldArmed ? "armed" : "disarmed");
+  el.textContent = "SHIELD: " + (shieldArmed ? "ARMED" : "DISARMED");
+  addFeedItem(shieldArmed ? "Shield re-armed" : "Shield disarmed by user");
+}
+
+// ===================== CONTACTS =====================
+function showContactsSkeleton() {
+  const list = document.getElementById("contactList");
+  list.innerHTML = "";
+  const widths = ["60%", "45%", "70%"];
+  for (let i = 0; i < 3; i++) {
+    const div = document.createElement("div");
+    div.className = "skeleton-item";
+    div.innerHTML = `<div class="skeleton-box" style="width:${widths[i]};"></div>`;
+    list.appendChild(div);
+  }
+}
+
+async function loadContacts() {
+  if (!supabaseClient) return;
+  showContactsSkeleton();
+  const skeletonStartTime = Date.now();
+  const MIN_SKELETON_MS = 500;
+  if (!navigator.onLine) { renderContactsFromCache(); return; }
+  const { data, error } = await supabaseClient.from("contacts").select("*").order("created_at");
+  const elapsed = Date.now() - skeletonStartTime;
+  if (elapsed < MIN_SKELETON_MS) await new Promise(r => setTimeout(r, MIN_SKELETON_MS - elapsed));
+  const list = document.getElementById("contactList");
+  if (error) { console.error(error); renderContactsFromCache(); return; }
+  try { localStorage.setItem("cachedContacts", JSON.stringify(data)); } catch (e) {}
+  list.innerHTML = "";
+  data.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "contact-item";
+    div.innerHTML = `<span>${c.name} - ${c.phone}</span><button class="del-btn" onclick="deleteContact('${c.id}')">✕</button>`;
+    list.appendChild(div);
+  });
+  renderOfflineBackupList(data);
+}
+
+function renderContactsFromCache() {
+  const list = document.getElementById("contactList");
+  list.innerHTML = "";
+  let cached = [];
+  try { cached = JSON.parse(localStorage.getItem("cachedContacts") || "[]"); } catch (e) {}
+  if (cached.length === 0) { list.innerHTML = `<div style="color:#999; font-size:13px;">Offline — no cached contacts found.</div>`; return; }
+  cached.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "contact-item";
+    div.innerHTML = `<span>${c.name} - ${c.phone}</span>`;
+    list.appendChild(div);
+  });
+  renderOfflineBackupList(cached);
+}
+
+function renderOfflineBackupList(contacts) {
+  const el = document.getElementById("offlineBackupList");
+  if (!contacts || contacts.length === 0) { el.textContent = ""; return; }
+  el.textContent = `Offline backup ready: ${contacts.length} contact(s) cached on this device for no-internet SOS.`;
+}
+
+async function addContact() {
+  const name = document.getElementById("contactName").value.trim();
+  const phone = document.getElementById("contactPhone").value.trim();
+  const t = translations[currentLang] || translations.en;
+  if (!name || !phone) { alert(t.fillFields); return; }
+  if (!currentUser) { alert("Please log in again."); return; }
+  const { error } = await supabaseClient.from("contacts").insert([{ name, phone, user_id: currentUser.id }]);
+  if (error) { console.error(error); alert("Error saving contact"); return; }
+  document.getElementById("contactName").value = "";
+  document.getElementById("contactPhone").value = "";
+  loadContacts();
+  addFeedItem(`Trusted contact added: ${name}`);
+}
+
+async function deleteContact(id) {
+  await supabaseClient.from("contacts").delete().eq("id", id);
+  loadContacts();
+}
+
+// ===================== CORE SOS =====================
+let sosCountdownTimer = null;
+let sosCountdownValue = 3;
+
+function startSOSCountdown() {
+  const sosBtn = document.getElementById("sosBtn");
+  const cancelBtn = document.getElementById("cancelSosBtn");
+  const status = document.getElementById("status");
+  sosCountdownValue = 3;
+  sosBtn.textContent = sosCountdownValue;
+  cancelBtn.style.display = "inline-block";
+  status.textContent = "";
+  if (navigator.vibrate) navigator.vibrate(200);
+  sosCountdownTimer = setInterval(() => {
+    sosCountdownValue--;
+    if (sosCountdownValue > 0) {
+      sosBtn.textContent = sosCountdownValue;
+      if (navigator.vibrate) navigator.vibrate(200);
+    } else {
+      clearInterval(sosCountdownTimer);
+      sosBtn.textContent = "SOS";
+      cancelBtn.style.display = "none";
+      executeSOS();
+    }
+  }, 1000);
+}
+
+function cancelSOSCountdown() {
+  clearInterval(sosCountdownTimer);
+  document.getElementById("sosBtn").textContent = "SOS";
+  document.getElementById("cancelSosBtn").style.display = "none";
+  document.getElementById("status").textContent = "SOS cancelled.";
+  setTimeout(() => { document.getElementById("status").textContent = ""; }, 2500);
+}
+
+function executeSOS() {
+  const status = document.getElementById("status");
+  const t = translations[currentLang] || translations.en;
+  status.textContent = t.gettingLocation;
+  addFeedItem("SOS triggered — capturing location");
+  if (!navigator.geolocation) { status.textContent = t.noGeo; return; }
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+    const message = encodeURIComponent(`${t.smsMessage} ${mapsLink}`);
+    if (!navigator.onLine) {
+      let cached = [];
+      try { cached = JSON.parse(localStorage.getItem("cachedContacts") || "[]"); } catch (e) {}
+      if (cached.length === 0) { status.textContent = t.noContacts; return; }
+      const phones = cached.map(c => c.phone).join(",");
+      status.textContent = "📡 Offline mode — sending SMS directly (no internet needed).";
+      window.location.href = `sms:${phones}?body=${message}`;
+      return;
+    }
+    try {
+      await supabaseClient.from("sos_logs").insert([{ latitude: lat, longitude: lng, user_id: currentUser ? currentUser.id : null }]);
+      const { data: contacts, error } = await supabaseClient.from("contacts").select("*");
+      if (error) throw error;
+      if (!contacts || contacts.length === 0) { status.textContent = t.noContacts; return; }
+      const phones = contacts.map(c => c.phone).join(",");
+      status.textContent = t.locCaptured;
+      addFeedItem("Location sent to trusted contacts");
+      window.location.href = `sms:${phones}?body=${message}`;
+    } catch (e) {
+      console.error("Online SOS flow failed, falling back to cache:", e);
+      let cached = [];
+      try { cached = JSON.parse(localStorage.getItem("cachedContacts") || "[]"); } catch (err) {}
+      if (cached.length === 0) { status.textContent = t.noContacts; return; }
+      const phones = cached.map(c => c.phone).join(",");
+      status.textContent = "⚠️ Connection issue — sent using saved contacts.";
+      window.location.href = `sms:${phones}?body=${message}`;
+    }
+  }, (err) => {
+    if (err.code === 1) status.textContent = t.locDenied;
+    else if (err.code === 2) status.textContent = "Location unavailable — try moving near a window or outdoors.";
+    else if (err.code === 3) status.textContent = "Location timed out — weak GPS signal, try again.";
+    else status.textContent = t.locDenied;
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+}
+
+function imSafe() {
+  const t = translations[currentLang] || translations.en;
+  document.getElementById("status").textContent = t.imSafeMsg;
+  addFeedItem("User marked themselves as safe");
+  if (journeyActive) confirmJourneyArrived();
+  setTimeout(() => { document.getElementById("status").textContent = ""; }, 3000);
+}
+
+// ===================== FAKE CALL =====================
+let ringInterval = null;
+function fakeCall() {
+  document.getElementById("fakeCallScreen").style.display = "flex";
+  document.getElementById("callStatusText").textContent = "Incoming call...";
+  if (navigator.vibrate) { ringInterval = setInterval(() => navigator.vibrate([500, 300]), 1600); navigator.vibrate([500, 300]); }
+}
+function acceptFakeCall() {
+  clearInterval(ringInterval);
+  if (navigator.vibrate) navigator.vibrate(0);
+  document.getElementById("callStatusText").textContent = "00:01";
+  let seconds = 1;
+  const timer = setInterval(() => {
+    seconds++;
+    const m = String(Math.floor(seconds / 60)).padStart(2, "0");
+    const s = String(seconds % 60).padStart(2, "0");
+    document.getElementById("callStatusText").textContent = `${m}:${s}`;
+  }, 1000);
+  setTimeout(() => { clearInterval(timer); endFakeCall(); }, 10000);
+}
+function endFakeCall() {
+  clearInterval(ringInterval);
+  if (navigator.vibrate) navigator.vibrate(0);
+  document.getElementById("fakeCallScreen").style.display = "none";
+}
+
+// ===================== PWA INSTALL =====================
+let deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.style.display = "block";
+});
+function installApp() {
+  const info = document.getElementById("installInfo");
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then((choice) => {
+      info.textContent = choice.outcome === "accepted" ? "App installed! Check your home screen." : "Installation cancelled.";
+      deferredInstallPrompt = null;
+      document.getElementById("installBtn").style.display = "none";
+    });
+  } else if (isIOS) {
+    info.textContent = "On iPhone: tap the Share icon (⬆️) in Safari, then 'Add to Home Screen'.";
+  } else {
+    info.textContent = "Use your browser menu (⋮) and select 'Add to Home Screen' or 'Install App'.";
+  }
+}
+window.addEventListener("appinstalled", () => { const btn = document.getElementById("installBtn"); if (btn) btn.style.display = "none"; });
+if (/iphone|ipad|ipod/i.test(navigator.userAgent)) { const b = document.getElementById("installBtn"); if (b) b.style.display = "block"; }
+
+// ===================== WHATSAPP GHOST CHAT =====================
+function sendViaWhatsApp() {
+  const info = document.getElementById("whatsappInfo");
+  const t = translations[currentLang] || translations.en;
+  if (!navigator.geolocation) { info.textContent = t.noGeo; return; }
+  info.textContent = t.gettingLocation;
+  navigator.geolocation.getCurrentPosition((pos) => {
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    const mapsLink = `https://maps.google.com/?q=${lat},${lng}`;
+    const message = encodeURIComponent(`${t.smsMessage} ${mapsLink}`);
+    info.textContent = "Opening WhatsApp — choose a contact to send to.";
+    addFeedItem("WhatsApp ghost alert sent");
+    window.location.href = `https://api.whatsapp.com/send?text=${message}`;
+    setTimeout(() => { info.textContent = ""; }, 4000);
+  }, (err) => {
+    if (err.code === 1) info.textContent = t.locDenied;
+    else if (err.code === 2) info.textContent = "Location unavailable — try moving near a window or outdoors.";
+    else if (err.code === 3) info.textContent = "Location timed out — weak GPS signal, try again.";
+    else info.textContent = t.locDenied;
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+}
+
+// ===================== LIVE LOCATION SHARE =====================
+let shareWatchId = null;
+function toggleLiveShare() {
+  const t = translations[currentLang] || translations.en;
+  const btn = document.getElementById("liveShareBtn");
+  const info = document.getElementById("liveShareInfo");
+  if (!isSharing) {
+    if (!navigator.geolocation) { info.textContent = t.noGeo; return; }
+    const shareId = (currentUser && currentUser.id ? currentUser.id : "guest") + "-" + Date.now();
+    const link = `${window.location.origin}${window.location.pathname}?track=${shareId}`;
+    shareWatchId = navigator.geolocation.watchPosition(async (pos) => {
+      if (supabaseClient) {
+        await supabaseClient.from("live_tracks").upsert([{ share_id: shareId, latitude: pos.coords.latitude, longitude: pos.coords.longitude, updated_at: new Date().toISOString() }]);
+      }
+    }, (err) => console.error(err), { enableHighAccuracy: true });
+    isSharing = true;
+    btn.textContent = t.shareStop;
+    info.textContent = `${t.shareStarted} ${link}`;
+    if (navigator.clipboard) navigator.clipboard.writeText(link).catch(() => {});
+    document.getElementById("qrCodeBox").style.display = "block";
+    document.getElementById("qrCodeCanvas").innerHTML = "";
+    if (window.QRCode) new QRCode(document.getElementById("qrCodeCanvas"), { text: link, width: 140, height: 140 });
+    addFeedItem("Live location sharing started");
+  } else {
+    if (shareWatchId !== null) navigator.geolocation.clearWatch(shareWatchId);
+    isSharing = false;
+    btn.textContent = t.shareStart;
+    info.textContent = t.shareStopped;
+    document.getElementById("qrCodeBox").style.display = "none";
+    addFeedItem("Live location sharing stopped");
+  }
+}
+
+// ===================== SHAKE TO SOS =====================
+let shakeEnabled = false, lastShakeTime = 0, lastX = null, lastY = null, lastZ = null, shakeCount = 0, shakeWindowStart = 0;
+const SHAKE_THRESHOLD = 18, SHAKES_NEEDED = 3, SHAKE_WINDOW_MS = 1500, SHAKE_COOLDOWN_MS = 5000;
+function handleMotion(event) {
+  const acc = event.accelerationIncludingGravity;
+  if (!acc || acc.x === null) return;
+  const now = Date.now();
+  if (lastX === null) { lastX = acc.x; lastY = acc.y; lastZ = acc.z; return; }
+  const delta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
+  lastX = acc.x; lastY = acc.y; lastZ = acc.z;
+  if (delta > SHAKE_THRESHOLD) {
+    if (now - shakeWindowStart > SHAKE_WINDOW_MS) { shakeWindowStart = now; shakeCount = 1; } else { shakeCount++; }
+    if (shakeCount >= SHAKES_NEEDED && (now - lastShakeTime > SHAKE_COOLDOWN_MS)) {
+      lastShakeTime = now; shakeCount = 0;
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      startSOSCountdown();
+    }
+  }
+  checkAnomaly(acc);
+}
+function enableShakeToSOS() {
+  const btn = document.getElementById("shakeBtn"), info = document.getElementById("shakeInfo");
+  if (shakeEnabled) {
+    window.removeEventListener("devicemotion", handleMotion);
+    shakeEnabled = false;
+    document.getElementById("txt-shake").textContent = "Enable Shake to SOS";
+    info.textContent = "OFF";
+    return;
+  }
+  const start = () => { window.addEventListener("devicemotion", handleMotion); shakeEnabled = true; document.getElementById("txt-shake").textContent = "6-Shake SOS: ON"; info.textContent = "ON"; };
+  if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+    DeviceMotionEvent.requestPermission().then(res => { if (res === "granted") start(); else info.textContent = "Permission denied"; }).catch(() => info.textContent = "Not supported");
+  } else { start(); }
+}
+
+// ===================== VOICE SOS =====================
+let recognizer = null, voiceActive = false;
+function toggleVoiceSOS() {
+  const btn = document.getElementById("voiceBtn"), state = document.getElementById("voiceState"), mic = document.getElementById("micIndicator");
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { state.textContent = "Unsupported"; return; }
+  if (voiceActive) {
+    if (recognizer) recognizer.stop();
+    voiceActive = false; state.textContent = "OFF"; mic.style.display = "none";
+    return;
+  }
+  recognizer = new SpeechRecognition();
+  recognizer.continuous = true;
+  recognizer.interimResults = false;
+  recognizer.lang = currentLang === "hi" ? "hi-IN" : currentLang === "mr" ? "mr-IN" : "en-IN";
+  recognizer.onresult = (e) => {
+    const said = e.results[e.results.length - 1][0].transcript.toLowerCase();
+    if (said.includes("help") || said.includes("bachao") || said.includes("save me")) {
+      addFeedItem(`Voice trigger detected: "${said.trim()}"`);
+      startSOSCountdown();
+    }
+  };
+  recognizer.onerror = () => { state.textContent = "Mic error"; };
+  recognizer.onend = () => { if (voiceActive) recognizer.start(); }; // auto-restart while enabled
+  recognizer.start();
+  voiceActive = true; state.textContent = "ON"; mic.style.display = "flex";
+  addFeedItem("Voice SOS listening enabled");
+}
+
+// ===================== AI ANOMALY ENGINE =====================
+// Lightweight on-device heuristic: flags a sudden burst of high-magnitude motion
+// followed by near-total stillness (a fall/struggle-like pattern), not a trained ML model.
+let anomalyEngineOn = false, anomalyMotionBuffer = [], lastAnomalyAlert = 0;
+function checkAnomaly(acc) {
+  if (!anomalyEngineOn) return;
+  const mag = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+  anomalyMotionBuffer.push(mag);
+  if (anomalyMotionBuffer.length > 40) anomalyMotionBuffer.shift();
+  if (anomalyMotionBuffer.length < 40) return;
+  const first = anomalyMotionBuffer.slice(0, 15), last = anomalyMotionBuffer.slice(-15);
+  const burst = Math.max(...first) > 30;
+  const stillness = (last.reduce((a, b) => a + b, 0) / last.length) < 10;
+  const now = Date.now();
+  if (burst && stillness && now - lastAnomalyAlert > 15000) {
+    lastAnomalyAlert = now;
+    document.getElementById("anomalyBanner").style.display = "block";
+    addFeedItem("AI Anomaly Engine flagged unusual motion pattern");
+    setTimeout(() => { document.getElementById("anomalyBanner").style.display = "none"; }, 8000);
+  }
+}
+function toggleAnomalyEngine() {
+  anomalyEngineOn = !anomalyEngineOn;
+  document.getElementById("anomalyState").textContent = anomalyEngineOn ? "ON" : "OFF";
+  if (anomalyEngineOn) {
+    window.addEventListener("devicemotion", handleMotion);
+    addFeedItem("AI Anomaly Engine enabled");
+  } else {
+    document.getElementById("anomalyBanner").style.display = "none";
+  }
+}
+
+// ===================== SMARTWATCH PAIRING =====================
+async function pairSmartwatch() {
+  const state = document.getElementById("watchState");
+  if (!navigator.bluetooth) { state.textContent = "Bluetooth unsupported"; return; }
+  try {
+    state.textContent = "Searching...";
+    const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
+    state.textContent = `Paired: ${device.name || "Wearable"}`;
+    addFeedItem(`Smartwatch paired: ${device.name || "unknown device"}`);
+    device.addEventListener("gattserverdisconnected", () => { state.textContent = "Disconnected"; addFeedItem("Smartwatch disconnected"); });
+  } catch (e) {
+    state.textContent = "Pairing cancelled";
+  }
+}
+
+// ===================== SAFETY SCORE =====================
+function computeSafetyScore() {
+  const hour = new Date().getHours();
+  let score = 9.0;
+  if (hour >= 22 || hour < 5) score -= 3.0;       // late night
+  else if (hour >= 19) score -= 1.2;              // evening
+  if (!navigator.onLine) score -= 1.0;            // no connectivity fallback risk
+  if (!isSharing) score -= 0.3;
+  score = Math.max(1, Math.min(10, score));
+  const rounded = score.toFixed(1);
+  const numEl = document.getElementById("safetyScoreNum");
+  const barEl = document.getElementById("safetyScoreBar");
+  numEl.textContent = rounded;
+  barEl.style.width = (score * 10) + "%";
+  let color = "#4ade80", cls = "good";
+  if (score < 4) { color = "#ff3b5c"; cls = "low"; }
+  else if (score < 7) { color = "#ffb84d"; cls = "mid"; }
+  numEl.className = "score-num " + cls;
+  barEl.style.background = color;
+  document.getElementById("safetyScoreLabel").textContent = hour >= 22 || hour < 5
+    ? "Late-night hours reduce your score — consider Journey Monitoring"
+    : "Based on time of day, movement, and connectivity";
+}
+setInterval(computeSafetyScore, 5 * 60 * 1000);
+
+// ===================== TACTICAL ROUTING =====================
+function routeToNearest(kind) {
+  const info = document.getElementById("routingInfo");
+  if (!navigator.geolocation) { info.textContent = "Geolocation not supported."; return; }
+  info.textContent = "Locating nearest " + kind + "...";
+  navigator.geolocation.getCurrentPosition((pos) => {
+    const { latitude, longitude } = pos.coords;
+    const url = `https://www.google.com/maps/search/${encodeURIComponent(kind)}/@${latitude},${longitude},15z`;
+    window.open(url, "_blank");
+    info.textContent = "";
+    addFeedItem(`Tactical route requested: nearest ${kind}`);
+  }, () => { info.textContent = "Location permission needed for routing."; });
+}
+
+// ===================== JOURNEY MONITORING =====================
+let journeyActive = false, journeyTimer = null, journeyStart = 0, journeyEtaMin = 0, journeyWatchId = null;
+function toggleJourneyMonitoring() {
+  if (journeyActive) { confirmJourneyArrived(); return; }
+  const etaInput = prompt("Journey ETA in minutes (e.g. 20):", "20");
+  const eta = parseInt(etaInput, 10);
+  if (!eta || eta <= 0) return;
+  journeyEtaMin = eta;
+  journeyStart = Date.now();
+  journeyActive = true;
+  document.getElementById("journeyState").textContent = "ON";
+  document.getElementById("journeyProgress").style.display = "block";
+  document.getElementById("journeyEta").textContent = `ETA ${eta} min`;
+  addFeedItem(`Journey Monitoring started — ETA ${eta} min`);
+
+  if (navigator.geolocation) {
+    journeyWatchId = navigator.geolocation.watchPosition(() => {}, () => {}, { enableHighAccuracy: true });
+  }
+  journeyTimer = setInterval(() => {
+    const elapsedMin = (Date.now() - journeyStart) / 60000;
+    const pct = Math.min(100, (elapsedMin / journeyEtaMin) * 100);
+    document.getElementById("journeyBar").style.width = pct + "%";
+    document.getElementById("journeyElapsed").textContent = Math.floor(elapsedMin) + " min elapsed";
+    if (elapsedMin >= journeyEtaMin) {
+      clearInterval(journeyTimer);
+      document.getElementById("journeyBar").style.background = "#ff3b5c";
+      addFeedItem("Journey ETA exceeded with no check-in — sending alert to contacts");
+      executeSOS();
+    }
+  }, 5000);
+}
+function confirmJourneyArrived() {
+  journeyActive = false;
+  clearInterval(journeyTimer);
+  if (journeyWatchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(journeyWatchId);
+  document.getElementById("journeyState").textContent = "OFF";
+  document.getElementById("journeyProgress").style.display = "none";
+  document.getElementById("journeyBar").style.width = "0%";
+  document.getElementById("journeyBar").style.background = "#3b82f6";
+  addFeedItem("Journey completed — arrived safe");
+}
+
+// ===================== SILENT VIDEO EVIDENCE =====================
+let mediaStream = null, mediaRecorder = null, recordedChunks = [];
+async function toggleRecording() {
+  const btn = document.getElementById("recordBtn"), info = document.getElementById("recordingInfo"), preview = document.getElementById("evidencePreview");
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+    mediaStream.getTracks().forEach(tr => tr.stop());
+    preview.style.display = "none";
+    info.textContent = "Recording stopped. Evidence saved locally.";
+    btn.textContent = "🎥 Silent Video Evidence";
+    return;
+  }
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    preview.srcObject = mediaStream;
+    preview.style.display = "block";
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(mediaStream);
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: "video/webm" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `pocketguardian-evidence-${Date.now()}.webm`;
+      a.style.display = "none";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };
+    mediaRecorder.start();
+    info.textContent = "Recording evidence silently...";
+    btn.textContent = "⏹️ Stop Recording";
+    addFeedItem("Silent video evidence recording started");
+  } catch (e) {
+    info.textContent = "Camera/mic permission denied or unavailable.";
+  }
+}
+
+function stopAllSensors() {
+  if (shakeEnabled) { window.removeEventListener("devicemotion", handleMotion); shakeEnabled = false; }
+  if (voiceActive && recognizer) { recognizer.stop(); voiceActive = false; }
+  if (anomalyEngineOn) { anomalyEngineOn = false; }
+  if (journeyActive) { clearInterval(journeyTimer); journeyActive = false; }
+  if (isSharing && shareWatchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(shareWatchId); isSharing = false; }
+}
+
+// ===================== INIT =====================
+window.addEventListener("DOMContentLoaded", async () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("track")) {
+    document.getElementById("trackViewerScreen").style.display = "block";
+    // Live track viewer: poll shared location every 5s
+    const shareId = params.get("track");
+    async function poll() {
+      if (!supabaseClient) return;
+      const { data } = await supabaseClient.from("live_tracks").select("*").eq("share_id", shareId).single();
+      if (data) {
+        document.getElementById("trackSubtitle").textContent = "Live location active";
+        document.getElementById("trackMapWrap").style.display = "block";
+        document.getElementById("trackMapFrame").src = `https://maps.google.com/maps?q=${data.latitude},${data.longitude}&z=15&output=embed`;
+        document.getElementById("trackLastUpdated").textContent = "Last updated: " + new Date(data.updated_at).toLocaleTimeString();
+        const link = document.getElementById("trackOpenMaps");
+        link.style.display = "inline-block";
+        link.href = `https://maps.google.com/?q=${data.latitude},${data.longitude}`;
+      }
+    }
+    poll(); setInterval(poll, 5000);
+    return;
+  }
+
+  if (!supabaseClient) return;
+  const { data } = await supabaseClient.auth.getSession();
+  if (data && data.session) { currentUser = data.session.user; startApp(); }
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") {
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("resetPasswordScreen").style.display = "flex";
+    }
+  });
+});
+</script>
+</body>
+</html>
